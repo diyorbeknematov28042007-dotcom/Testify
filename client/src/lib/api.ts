@@ -1,5 +1,4 @@
-const BASE = const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
-
+const BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 function getHeaders(extra?: Record<string, string>) {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   const teacherToken = localStorage.getItem('teacherToken');

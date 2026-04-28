@@ -1,4 +1,4 @@
-const BASE = '/api';
+const BASE = const BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 function getHeaders(extra?: Record<string, string>) {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };

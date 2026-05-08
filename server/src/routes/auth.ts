@@ -36,7 +36,11 @@ authRouter.post('/teacher/register', async (req, res) => {
     const existing = await db.query.teachers.findFirst({ where: eq(teachers.login, login) });
     if (existing) return res.status(409).json({ error: 'Bu login band' });
 
-    const [teacher] = await db.insert(teachers).values({ login, password, name }).returning();
+   const [teacher] = await db.insert(teachers).values({ 
+  login, password, name,
+  publicTestLimit: 3,
+  privateTestLimit: 1
+}).returning();
     const token = uuidv4();
     await db.insert(teacherAuthTokens).values({ token, teacherId: teacher.id });
     res.json({ token, name: teacher.name });

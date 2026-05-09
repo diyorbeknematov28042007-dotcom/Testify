@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Users, BookOpen, BarChart2, Plus, Trash2, Edit2, Eye, EyeOff, Copy, Download, StopCircle, PlayCircle, X } from 'lucide-react';
+import { Users, BookOpen, Plus, Trash2, Edit2, Eye, EyeOff, Copy, Download, StopCircle, PlayCircle, X } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { formatDate, cn, downloadDocxFile } from '../../lib/utils';
@@ -13,7 +13,7 @@ export default function AdminDashboard() {
   const [addModal, setAddModal] = useState(false);
   const [limitModal, setLimitModal] = useState<any>(null);
   const [addForm, setAddForm] = useState({ login: '', password: '', name: '' });
-  const [limitForm, setLimitForm] = useState({ pub: 10, priv: 5 });
+  const [limitForm, setLimitForm] = useState({ pub: 3, priv: 1 });
   const [deleteTeacher, setDeleteTeacher] = useState<number | null>(null);
   const [deleteTest, setDeleteTest] = useState<number | null>(null);
 
@@ -102,7 +102,7 @@ export default function AdminDashboard() {
                 <table className="w-full">
                   <thead className="bg-slate-50 border-b border-slate-200">
                     <tr>
-                      {['F.I.SH', 'Login', 'Parol', 'Ommaviy', 'Shaxsiy', 'Sana', 'Amallar'].map(h => (
+                      {['F.I.SH', 'ID', 'Login', 'Parol', 'Ommaviy', 'Shaxsiy', 'Sana', 'Amallar'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">{h}</th>
                       ))}
                     </tr>
@@ -111,6 +111,16 @@ export default function AdminDashboard() {
                     {teachers.map((t: any) => (
                       <tr key={t.id} className="hover:bg-slate-50">
                         <td className="px-4 py-3 text-sm font-medium text-slate-800">{t.name}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono text-sm font-bold text-indigo-600">{t.teacherId || '—'}</span>
+                            {t.teacherId && (
+                              <button onClick={() => { navigator.clipboard.writeText(t.teacherId); toast('ID nusxalandi', 'success'); }} className="text-slate-400 hover:text-indigo-600">
+                                <Copy className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-4 py-3 text-sm font-mono text-slate-600">{t.login}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5">
@@ -154,7 +164,7 @@ export default function AdminDashboard() {
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
-                    {['Test nomi', "O'qituvchi", 'Kod', 'Tur', 'Qo\'shilgan', 'Holat', 'Amallar'].map(h => (
+                    {['Test nomi', "O'qituvchi", 'Kod', 'Tur', "Qo'shilgan", 'Holat', 'Amallar'].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">{h}</th>
                     ))}
                   </tr>

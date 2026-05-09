@@ -11,6 +11,23 @@ export const authRouter = Router();
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 authRouter.use(limiter);
 
+function generateTeacherId(): string {
+  const digits = '0123456789';
+  let id = '';
+  for (let i = 0; i < 8; i++) {
+    id += digits[Math.floor(Math.random() * digits.length)];
+  }
+  return id;
+}
+
+async function uniqueTeacherId(): Promise<string> {
+  let id = generateTeacherId();
+  while (await db.query.teachers.findFirst({ where: eq(teachers.teacherId, id) })) {
+    id = generateTeacherId();
+  }
+  return id;
+}
+
 authRouter.post('/teacher/login', async (req, res) => {
   try {
     const { login, password } = req.body;
@@ -20,7 +37,7 @@ authRouter.post('/teacher/login', async (req, res) => {
     }
     const token = uuidv4();
     await db.insert(teacherAuthTokens).values({ token, teacherId: teacher.id });
-    res.json({ token, name: teacher.name });
+    res.json({ token, name: teacher.name, teacherId: teacher.teacherId });
   } catch (e) {
     res.status(500).json({ error: 'Server xatosi' });
   }
@@ -36,14 +53,18 @@ authRouter.post('/teacher/register', async (req, res) => {
     const existing = await db.query.teachers.findFirst({ where: eq(teachers.login, login) });
     if (existing) return res.status(409).json({ error: 'Bu login band' });
 
-   const [teacher] = await db.insert(teachers).values({ 
-  login, password, name,
-  publicTestLimit: 3,
-  privateTestLimit: 1
-}).returning();
+    const teacherId = await uniqueTeacherId();
+
+    const [teacher] = await db.insert(teachers).values({
+      login, password, name,
+      teacherId,
+      publicTestLimit: 3,
+      privateTestLimit: 1
+    }).returning();
+
     const token = uuidv4();
     await db.insert(teacherAuthTokens).values({ token, teacherId: teacher.id });
-    res.json({ token, name: teacher.name });
+    res.json({ token, name: teacher.name, teacherId: teacher.teacherId });
   } catch (e) {
     res.status(500).json({ error: 'Server xatosi' });
   }

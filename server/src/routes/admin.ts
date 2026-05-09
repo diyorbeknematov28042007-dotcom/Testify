@@ -1,12 +1,20 @@
 import { Router } from 'express';
 import { db } from '../db';
 import { tests, questions, results, teachers, sessions } from '../db/schema';
-import { eq, count } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { adminAuth } from '../middleware/auth';
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
 
 export const adminRouter = Router();
 adminRouter.use(adminAuth);
+
+async function genUniqueTeacherId(): Promise<string> {
+  let id = '';
+  do {
+    id = Math.floor(10000000 + Math.random() * 90000000).toString();
+  } while (await db.query.teachers.findFirst({ where: eq(teachers.teacherId, id) }));
+  return id;
+}
 
 // Stats
 adminRouter.get('/stats', async (req, res) => {
@@ -39,8 +47,13 @@ adminRouter.get('/teachers', async (req, res) => {
     });
 
     res.json(allTeachers.map(t => ({
-      id: t.id, login: t.login, password: t.password, name: t.name,
-      publicTestLimit: t.publicTestLimit, privateTestLimit: t.privateTestLimit,
+      id: t.id,
+      teacherId: t.teacherId,
+      login: t.login,
+      password: t.password,
+      name: t.name,
+      publicTestLimit: t.publicTestLimit,
+      privateTestLimit: t.privateTestLimit,
       createdAt: t.createdAt,
       publicCount: t.tests.filter(x => x.type === 'public').length,
       privateCount: t.tests.filter(x => x.type === 'private').length,
@@ -61,7 +74,13 @@ adminRouter.post('/teachers', async (req, res) => {
     const existing = await db.query.teachers.findFirst({ where: eq(teachers.login, login) });
     if (existing) return res.status(409).json({ error: 'Bu login band' });
 
-    const [teacher] = await db.insert(teachers).values({ login, password, name }).returning();
+    const teacherId = await genUniqueTeacherId();
+
+    const [teacher] = await db.insert(teachers).values({
+      login, password, name, teacherId,
+      publicTestLimit: 3,
+      privateTestLimit: 1,
+    }).returning();
     res.json(teacher);
   } catch (e) {
     res.status(500).json({ error: 'Server xatosi' });

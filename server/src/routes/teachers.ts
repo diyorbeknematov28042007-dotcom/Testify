@@ -19,9 +19,14 @@ teachersRouter.get('/me', async (req, res) => {
   const pubCount = myTests.filter(t => t.type === 'public').length;
   const privCount = myTests.filter(t => t.type === 'private').length;
   res.json({
-    id: teacher.id, name: teacher.name, login: teacher.login,
-    publicTestLimit: teacher.publicTestLimit, privateTestLimit: teacher.privateTestLimit,
-    publicCount: pubCount, privateCount: privCount,
+    id: teacher.id,
+    teacherId: teacher.teacherId,
+    name: teacher.name,
+    login: teacher.login,
+    publicTestLimit: teacher.publicTestLimit,
+    privateTestLimit: teacher.privateTestLimit,
+    publicCount: pubCount,
+    privateCount: privCount,
   });
 });
 

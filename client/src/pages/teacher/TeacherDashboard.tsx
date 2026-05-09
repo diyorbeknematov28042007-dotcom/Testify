@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useLocation } from 'wouter';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Copy, StopCircle, PlayCircle, Trash2, Edit, BarChart2, Download, BookOpen, Users, Key, Eye, EyeOff } from 'lucide-react';
+import { Plus, Search, Copy, StopCircle, PlayCircle, Trash2, Edit, BarChart2, Download, BookOpen, Users, Key, Headphones } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { formatDate, downloadDocxFile, cn } from '../../lib/utils';
@@ -15,7 +15,6 @@ export default function TeacherDashboard() {
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
   const [showPassModal, setShowPassModal] = useState(false);
   const [passForm, setPassForm] = useState({ old: '', next: '', confirm: '' });
-  const [showPassVis, setShowPassVis] = useState({ old: false, next: false });
   const [deleteId, setDeleteId] = useState<number | null>(null);
 
   const { data: me } = useQuery({ queryKey: ['teacher-me'], queryFn: api.getMe });
@@ -39,7 +38,7 @@ export default function TeacherDashboard() {
 
   const passMut = useMutation({
     mutationFn: () => api.changePassword(passForm.old, passForm.next),
-    onSuccess: () => { toast('Parol o\'zgartirildi', 'success'); setShowPassModal(false); setPassForm({ old: '', next: '', confirm: '' }); },
+    onSuccess: () => { toast("Parol o'zgartirildi", 'success'); setShowPassModal(false); setPassForm({ old: '', next: '', confirm: '' }); },
     onError: (e: any) => toast(e.message, 'error'),
   });
 
@@ -68,14 +67,28 @@ export default function TeacherDashboard() {
             <p className="text-slate-500 text-sm">Testlaringizni boshqaring</p>
           </div>
           <div className="flex gap-2">
-            <button onClick={() => setShowPassModal(true)} className="btn-ghost flex items-center gap-1.5 text-sm"><Key className="w-4 h-4" /><span className="hidden sm:inline">Parol</span></button>
-            <button onClick={() => setLoc('/teacher/create')} className="btn-primary flex items-center gap-1.5 text-sm"><Plus className="w-4 h-4" />Yangi test</button>
+            <button onClick={() => setShowPassModal(true)} className="btn-ghost flex items-center gap-1.5 text-sm">
+              <Key className="w-4 h-4" /><span className="hidden sm:inline">Parol</span>
+            </button>
+            <button onClick={() => setLoc('/teacher/create')} className="btn-primary flex items-center gap-1.5 text-sm">
+              <Plus className="w-4 h-4" />Yangi test
+            </button>
           </div>
         </div>
 
         {/* Stats */}
         {me && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-slate-600 to-slate-800 rounded-2xl p-4 text-white col-span-2 sm:col-span-1">
+              <p className="text-xs opacity-70 mb-1">Sizning ID</p>
+              <p className="text-xl font-bold font-mono tracking-widest">{me.teacherId}</p>
+              <button
+                onClick={() => { navigator.clipboard.writeText(me.teacherId); toast("ID nusxalandi", 'success'); }}
+                className="mt-1 text-xs opacity-70 hover:opacity-100 flex items-center gap-1"
+              >
+                <Copy className="w-3 h-3" /> Nusxalash
+              </button>
+            </div>
             {[
               { label: 'Jami testlar', value: me.publicCount + me.privateCount, color: 'from-indigo-500 to-violet-600' },
               { label: 'Ommaviy', value: `${me.publicCount}/${me.publicTestLimit}`, color: 'from-emerald-500 to-teal-600' },
@@ -109,7 +122,7 @@ export default function TeacherDashboard() {
         {/* Tests grid */}
         {isLoading ? (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1,2,3].map(i => <div key={i} className="card animate-pulse h-48" />)}
+            {[1, 2, 3].map(i => <div key={i} className="card animate-pulse h-48" />)}
           </div>
         ) : filtered.length === 0 ? (
           <div className="card text-center py-12 text-slate-500">
@@ -130,7 +143,9 @@ export default function TeacherDashboard() {
                 <p className="text-xs text-slate-500 mb-2">{t.subject}</p>
                 <div className="font-mono text-xs bg-slate-100 rounded-lg px-2.5 py-1.5 text-indigo-700 font-semibold tracking-widest mb-3 flex items-center justify-between">
                   {t.code}
-                  <button onClick={() => { navigator.clipboard.writeText(t.code); toast('Kod nusxalandi', 'success'); }} className="ml-2 text-slate-400 hover:text-indigo-600"><Copy className="w-3.5 h-3.5" /></button>
+                  <button onClick={() => { navigator.clipboard.writeText(t.code); toast('Kod nusxalandi', 'success'); }} className="ml-2 text-slate-400 hover:text-indigo-600">
+                    <Copy className="w-3.5 h-3.5" />
+                  </button>
                 </div>
                 <div className="flex gap-3 text-xs text-slate-500 mb-4">
                   <span><BookOpen className="inline w-3.5 h-3.5 mr-0.5" />{t.questionCount}</span>
@@ -173,7 +188,7 @@ export default function TeacherDashboard() {
           <div className="card max-w-sm w-full">
             <h3 className="font-bold text-lg mb-4">Parolni o'zgartirish</h3>
             <div className="space-y-3">
-              {[['old', 'Eski parol', 'showPassVis.old'], ['next', 'Yangi parol', ''], ['confirm', 'Yangi parol (tasdiq)', '']].map(([field, label]) => (
+              {[['old', 'Eski parol'], ['next', 'Yangi parol'], ['confirm', 'Yangi parol (tasdiq)']].map(([field, label]) => (
                 <div key={field}>
                   <label className="text-sm font-medium text-slate-700 block mb-1">{label}</label>
                   <input className="input" type="password" value={(passForm as any)[field]} onChange={e => setPassForm(f => ({ ...f, [field]: e.target.value }))} />

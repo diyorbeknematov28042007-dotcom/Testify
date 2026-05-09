@@ -11,20 +11,11 @@ export const authRouter = Router();
 const limiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 30 });
 authRouter.use(limiter);
 
-function generateTeacherId(): string {
-  const digits = '0123456789';
+async function genUniqueTeacherId(): Promise<string> {
   let id = '';
-  for (let i = 0; i < 8; i++) {
-    id += digits[Math.floor(Math.random() * digits.length)];
-  }
-  return id;
-}
-
-async function uniqueTeacherId(): Promise<string> {
-  let id = generateTeacherId();
-  while (await db.query.teachers.findFirst({ where: eq(teachers.teacherId, id) })) {
-    id = generateTeacherId();
-  }
+  do {
+    id = Math.floor(10000000 + Math.random() * 90000000).toString();
+  } while (await db.query.teachers.findFirst({ where: eq(teachers.teacherId, id) }));
   return id;
 }
 
@@ -53,13 +44,12 @@ authRouter.post('/teacher/register', async (req, res) => {
     const existing = await db.query.teachers.findFirst({ where: eq(teachers.login, login) });
     if (existing) return res.status(409).json({ error: 'Bu login band' });
 
-    const teacherId = await uniqueTeacherId();
+    const teacherId = await genUniqueTeacherId();
 
     const [teacher] = await db.insert(teachers).values({
-      login, password, name,
-      teacherId,
+      login, password, name, teacherId,
       publicTestLimit: 3,
-      privateTestLimit: 1
+      privateTestLimit: 1,
     }).returning();
 
     const token = uuidv4();

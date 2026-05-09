@@ -6,11 +6,12 @@ import { relations } from 'drizzle-orm';
 
 export const teachers = pgTable('teachers', {
   id: serial('id').primaryKey(),
+  teacherId: text('teacher_id').unique().notNull(),
   login: text('login').unique().notNull(),
   password: text('password').notNull(),
   name: text('name').notNull(),
-  publicTestLimit: integer('public_test_limit').default(10).notNull(),
-  privateTestLimit: integer('private_test_limit').default(5).notNull(),
+  publicTestLimit: integer('public_test_limit').default(3).notNull(),
+  privateTestLimit: integer('private_test_limit').default(1).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -68,7 +69,6 @@ export const teacherAuthTokens = pgTable('teacher_auth_tokens', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// Relations
 export const teachersRelations = relations(teachers, ({ many }) => ({
   tests: many(tests),
   authTokens: many(teacherAuthTokens),

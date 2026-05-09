@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'wouter';
-import { GraduationCap, LogOut, BookOpen, LayoutDashboard, Plus, BarChart2, Shield } from 'lucide-react';
+import { GraduationCap, LogOut, BookOpen, LayoutDashboard, Plus, Shield, Headphones } from 'lucide-react';
 import { api } from '../../lib/api';
 
 type Role = 'teacher' | 'admin' | 'student';
@@ -40,6 +40,15 @@ export function TopNav({ role }: { role: Role }) {
                   <Plus className="w-4 h-4" />
                   <span className="hidden sm:inline">Yangi test</span>
                 </Link>
+                <a
+                  href="https://t.me/testifyN3_bot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  <Headphones className="w-4 h-4" />
+                  <span className="hidden sm:inline">Support</span>
+                </a>
                 <button onClick={handleTeacherLogout} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors ml-2">
                   <LogOut className="w-4 h-4" />
                   <span className="hidden sm:inline">Chiqish</span>
@@ -60,10 +69,21 @@ export function TopNav({ role }: { role: Role }) {
               </>
             )}
             {role === 'student' && (
-              <Link href="/" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">
-                <BookOpen className="w-4 h-4" />
-                <span className="hidden sm:inline">Bosh sahifa</span>
-              </Link>
+              <>
+                <Link href="/" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100">
+                  <BookOpen className="w-4 h-4" />
+                  <span className="hidden sm:inline">Bosh sahifa</span>
+                </Link>
+                <a
+                  href="https://t.me/testifyN3_bot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+                >
+                  <Headphones className="w-4 h-4" />
+                  <span className="hidden sm:inline">Support</span>
+                </a>
+              </>
             )}
           </div>
         </div>

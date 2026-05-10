@@ -66,6 +66,14 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* Yashirin admin kirish */}
+      <a
+        href="/admin/login"
+        style={{ position: 'fixed', bottom: '4px', right: '4px', fontSize: '8px', opacity: 0.01, color: 'transparent', userSelect: 'none' }}
+      >
+        .
+      </a>
     </div>
   );
 }

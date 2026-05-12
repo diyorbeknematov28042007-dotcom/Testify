@@ -1,12 +1,12 @@
 const BASE = (import.meta.env.VITE_API_URL || '') + '/api';
 
-function getHeaders(extra?: Record<string, string>) {
+function getHeaders() {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   const teacherToken = localStorage.getItem('teacherToken');
   const adminToken = localStorage.getItem('adminToken');
   if (teacherToken) h['x-teacher-token'] = teacherToken;
   if (adminToken) h['x-admin-token'] = adminToken;
-  return { ...h, ...extra };
+  return h;
 }
 
 async function req(method: string, path: string, body?: any) {
@@ -22,20 +22,28 @@ async function req(method: string, path: string, body?: any) {
 
 export const api = {
   // Auth
-  teacherLogin: (login: string, password: string) => req('POST', '/auth/teacher/login', { login, password }),
-  teacherRegister: (login: string, password: string, name: string) => req('POST', '/auth/teacher/register', { login, password, name }),
+  teacherLogin: (login: string, password: string) =>
+    req('POST', '/auth/teacher/login', { login, password }),
+  teacherRegister: (login: string, password: string, name: string) =>
+    req('POST', '/auth/teacher/register', { login, password, name }),
   teacherLogout: () => req('POST', '/auth/teacher/logout'),
-  adminLogin: (username: string) => req('POST', '/auth/admin/login', { username }),
+  adminLogin: (username: string) =>
+    req('POST', '/auth/admin/login', { username }),
 
   // Public
-  getPublicTests: (subject?: string) => req('GET', `/public/tests${subject ? `?subject=${subject}` : ''}`),
-  joinTest: (code: string, studentName: string, telegram?: string) => req('POST', `/public/tests/${code}/join`, { studentName, telegram }),
-  submitTest: (code: string, sessionId: string, answers: (number | null)[]) => req('POST', `/public/tests/${code}/submit`, { sessionId, answers }),
-  getReview: (code: string) => req('GET', `/public/tests/${code}/review`),
+  getPublicTests: (subject?: string) =>
+    req('GET', `/public/tests${subject ? `?subject=${subject}` : ''}`),
+  joinTest: (code: string, studentName: string, telegram?: string) =>
+    req('POST', `/public/tests/${code}/join`, { studentName, telegram }),
+  submitTest: (code: string, sessionId: string, answers: (number | null)[]) =>
+    req('POST', `/public/tests/${code}/submit`, { sessionId, answers }),
+  getReview: (code: string) =>
+    req('GET', `/public/tests/${code}/review`),
 
   // Teacher
   getMe: () => req('GET', '/teachers/me'),
-  changePassword: (oldPassword: string, newPassword: string) => req('PATCH', '/teachers/me/password', { oldPassword, newPassword }),
+  changePassword: (oldPassword: string, newPassword: string) =>
+    req('PATCH', '/teachers/me/password', { oldPassword, newPassword }),
   getMyTests: () => req('GET', '/teachers/tests'),
   createTest: (data: any) => req('POST', '/teachers/tests', data),
   getTest: (id: number) => req('GET', `/teachers/tests/${id}`),
@@ -61,16 +69,36 @@ export const api = {
   adminRestartTest: (id: number) => req('POST', `/admin/tests/${id}/restart`),
   adminDeleteTest: (id: number) => req('DELETE', `/admin/tests/${id}`),
 
-  // PDF download helper
+  // PDF yuklab olish
   downloadPdf: async (url: string, filename: string) => {
-    const token = localStorage.getItem('teacherToken') || localStorage.getItem('adminToken') || '';
-    const header = localStorage.getItem('adminToken') ? 'x-admin-token' : 'x-teacher-token';
-    const res = await fetch(`${BASE.replace('/api', '')}${url}`, { headers: { [header]: token } });
+    const token =
+      localStorage.getItem('adminToken') ||
+      localStorage.getItem('teacherToken') ||
+      '';
+    const header = localStorage.getItem('adminToken')
+      ? 'x-admin-token'
+      : 'x-teacher-token';
+
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    const fullUrl = `${apiBase}${url}`;
+
+    const res = await fetch(fullUrl, {
+      headers: { [header]: token },
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'PDF xatosi');
+    }
+
     const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
+    a.href = objectUrl;
     a.download = filename;
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(a.href);
+    document.body.removeChild(a);
+    URL.revokeObjectURL(objectUrl);
   },
 };

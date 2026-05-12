@@ -84,7 +84,7 @@ export default function AdminDashboard() {
 
   const handlePdf = async (id: number) => {
     try {
-      await api.downloadPdf(`/api/admin/tests/${id}/pdf`, `test-${id}.pdf`);
+      await api.downloadPdf(`/api/admin/tests/${id}/docx`, `test-${id}.docx`);
     } catch {
       toast('PDF xatosi', 'error');
     }

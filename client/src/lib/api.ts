@@ -1,4 +1,5 @@
 const BASE = (import.meta.env.VITE_API_URL || '') + '/api';
+
 function getHeaders(extra?: Record<string, string>) {
   const h: Record<string, string> = { 'Content-Type': 'application/json' };
   const teacherToken = localStorage.getItem('teacherToken');
@@ -42,14 +43,11 @@ export const api = {
   deleteTest: (id: number) => req('DELETE', `/teachers/tests/${id}`),
   cloneTest: (id: number) => req('POST', `/teachers/tests/${id}/clone`),
   stopTest: (id: number) => req('POST', `/teachers/tests/${id}/stop`),
-  restartTest: (id: number) => req('POST', `/teachers/tests/${id}/restart`),
   getTestResults: (id: number) => req('GET', `/teachers/tests/${id}/results`),
-  downloadDocx: (id: number, isAdmin = false) => {
-    const token = isAdmin ? localStorage.getItem('adminToken') : localStorage.getItem('teacherToken');
-    const header = isAdmin ? 'x-admin-token' : 'x-teacher-token';
-    const path = isAdmin ? `/api/admin/tests/${id}/docx` : `/api/teachers/tests/${id}/docx`;
-    return fetch(path, { headers: { [header]: token || '' } });
-  },
+
+  // Promocode
+  getPromocode: () => req('GET', '/teachers/promocode'),
+  createPromocode: () => req('POST', '/teachers/promocode'),
 
   // Admin
   getStats: () => req('GET', '/admin/stats'),
@@ -62,4 +60,17 @@ export const api = {
   adminStopTest: (id: number) => req('POST', `/admin/tests/${id}/stop`),
   adminRestartTest: (id: number) => req('POST', `/admin/tests/${id}/restart`),
   adminDeleteTest: (id: number) => req('DELETE', `/admin/tests/${id}`),
+
+  // PDF download helper
+  downloadPdf: async (url: string, filename: string) => {
+    const token = localStorage.getItem('teacherToken') || localStorage.getItem('adminToken') || '';
+    const header = localStorage.getItem('adminToken') ? 'x-admin-token' : 'x-teacher-token';
+    const res = await fetch(`${BASE.replace('/api', '')}${url}`, { headers: { [header]: token } });
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  },
 };

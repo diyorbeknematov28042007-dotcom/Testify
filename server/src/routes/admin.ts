@@ -1,420 +1,253 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, Edit2, Eye, EyeOff, Copy, Download, StopCircle, PlayCircle, X, Plus } from 'lucide-react';
-import { TopNav } from '../../components/layout/TopNav';
-import { api } from '../../lib/api';
-import { formatDate, cn } from '../../lib/utils';
-import { toast } from '../../hooks/useToast';
+import { Router } from 'express';
+import { db } from '../db';
+import { teachers, tests, results } from '../db/schema';
+import { eq, count } from 'drizzle-orm';
+import { adminAuth } from '../middleware/auth';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
-export default function AdminDashboard() {
-  const qc = useQueryClient();
-  const [tab, setTab] = useState<'stats' | 'teachers' | 'tests'>('stats');
-  const [showPassMap, setShowPassMap] = useState<Record<number, boolean>>({});
-  const [addModal, setAddModal] = useState(false);
-  const [limitModal, setLimitModal] = useState<any>(null);
-  const [addForm, setAddForm] = useState({ login: '', password: '', name: '' });
-  const [limitForm, setLimitForm] = useState({ pub: 3, priv: 1 });
-  const [deleteTeacher, setDeleteTeacher] = useState<number | null>(null);
-  const [deleteTest, setDeleteTest] = useState<number | null>(null);
+export const adminRouter = Router();
+adminRouter.use(adminAuth);
 
-  const { data: stats } = useQuery({
-    queryKey: ['admin-stats'],
-    queryFn: api.getStats,
-  });
+// ── STATS ──
+adminRouter.get('/stats', async (req, res) => {
+  try {
+    const teacherCount = await db.select({ count: count() }).from(teachers).then(r => Number(r[0].count));
+    const testCount = await db.select({ count: count() }).from(tests).then(r => Number(r[0].count));
+    const attemptCount = await db.select({ count: count() }).from(results).then(r => Number(r[0].count));
+    const allTests = await db.query.tests.findMany();
+    const publicCount = allTests.filter(t => t.type === 'public').length;
+    const privateCount = allTests.filter(t => t.type === 'private').length;
+    const activeCount = allTests.filter(t => t.isActive).length;
+    res.json({ teacherCount, testCount, attemptCount, publicCount, privateCount, activeCount });
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const { data: teachers = [] } = useQuery({
-    queryKey: ['admin-teachers'],
-    queryFn: api.getTeachers,
-    enabled: tab === 'teachers',
-  });
+// ── TEACHERS ──
+adminRouter.get('/teachers', async (req, res) => {
+  try {
+    const allTeachers = await db.query.teachers.findMany({
+      with: { tests: { columns: { id: true, type: true } } },
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+    });
+    res.json(allTeachers.map(t => ({
+      id: t.id,
+      teacherId: t.teacherId,
+      name: t.name,
+      login: t.login,
+      password: t.password,
+      publicTestLimit: t.publicTestLimit,
+      privateTestLimit: t.privateTestLimit,
+      currentTariff: t.currentTariff,
+      createdAt: t.createdAt,
+      publicCount: (t.tests as any[]).filter(x => x.type === 'public').length,
+      privateCount: (t.tests as any[]).filter(x => x.type === 'private').length,
+    })));
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const { data: tests = [] } = useQuery({
-    queryKey: ['admin-tests'],
-    queryFn: api.getAllTests,
-    enabled: tab === 'tests',
-  });
+adminRouter.post('/teachers', async (req, res) => {
+  try {
+    const { login, password, name } = req.body;
+    if (!login || !password || !name)
+      return res.status(400).json({ error: "Barcha maydonlarni to'ldiring" });
+    const existing = await db.query.teachers.findFirst({ where: eq(teachers.login, login) });
+    if (existing) return res.status(400).json({ error: 'Bu login band' });
+    const teacherId = Math.floor(10000000 + Math.random() * 90000000).toString();
+    const [teacher] = await db.insert(teachers).values({ login, password, name, teacherId }).returning();
+    res.json(teacher);
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const addMut = useMutation({
-    mutationFn: () => api.addTeacher(addForm),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-teachers'] });
-      qc.invalidateQueries({ queryKey: ['admin-stats'] });
-      toast("O'qituvchi qo'shildi", 'success');
-      setAddModal(false);
-      setAddForm({ login: '', password: '', name: '' });
-    },
-    onError: (e: any) => toast(e.message, 'error'),
-  });
+adminRouter.delete('/teachers/:id', async (req, res) => {
+  try {
+    await db.delete(teachers).where(eq(teachers.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const delTeacherMut = useMutation({
-    mutationFn: api.deleteTeacher,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-teachers'] });
-      qc.invalidateQueries({ queryKey: ['admin-stats'] });
-      toast("O'qituvchi o'chirildi", 'success');
-      setDeleteTeacher(null);
-    },
-  });
+adminRouter.patch('/teachers/:id/limits', async (req, res) => {
+  try {
+    const { publicTestLimit, privateTestLimit, currentTariff } = req.body;
+    const updateData: any = {};
+    if (publicTestLimit !== undefined) updateData.publicTestLimit = publicTestLimit;
+    if (privateTestLimit !== undefined) updateData.privateTestLimit = privateTestLimit;
+    if (currentTariff !== undefined) updateData.currentTariff = currentTariff;
+    await db.update(teachers).set(updateData).where(eq(teachers.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const limitMut = useMutation({
-    mutationFn: ({ id }: { id: number }) =>
-      api.updateLimits(id, limitForm.pub, limitForm.priv),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-teachers'] });
-      toast('Limit yangilandi', 'success');
-      setLimitModal(null);
-    },
-  });
+// ── TESTS ──
+adminRouter.get('/tests', async (req, res) => {
+  try {
+    const allTests = await db.query.tests.findMany({
+      with: {
+        teacher: { columns: { name: true } },
+        questions: { columns: { id: true } },
+        results: { columns: { id: true } },
+      },
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+    });
+    res.json(allTests.map(t => ({
+      ...t,
+      teacherName: (t as any).teacher?.name || '—',
+      questionCount: (t as any).questions?.length || 0,
+      attemptCount: (t as any).results?.length || 0,
+    })));
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const toggleTestMut = useMutation({
-    mutationFn: ({ id, active }: { id: number; active: boolean }) =>
-      active ? api.adminStopTest(id) : api.adminRestartTest(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-tests'] }),
-  });
+adminRouter.post('/tests/:id/stop', async (req, res) => {
+  try {
+    await db.update(tests)
+      .set({ isActive: false, stoppedAt: new Date() })
+      .where(eq(tests.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const delTestMut = useMutation({
-    mutationFn: api.adminDeleteTest,
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['admin-tests'] });
-      qc.invalidateQueries({ queryKey: ['admin-stats'] });
-      toast("Test o'chirildi", 'success');
-      setDeleteTest(null);
-    },
-  });
+adminRouter.post('/tests/:id/restart', async (req, res) => {
+  try {
+    await db.update(tests)
+      .set({ isActive: true, stoppedAt: null })
+      .where(eq(tests.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
 
-  const handlePdf = async (id: number) => {
-    try {
-      await api.downloadPdf(`/api/admin/tests/${id}/pdf`, `test-${id}.pdf`);
-    } catch {
-      toast('PDF xatosi', 'error');
+adminRouter.delete('/tests/:id', async (req, res) => {
+  try {
+    await db.delete(tests).where(eq(tests.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: 'Server xatosi' });
+  }
+});
+
+// ── PDF ──
+adminRouter.get('/tests/:id/pdf', async (req, res) => {
+  try {
+    const testId = parseInt(req.params.id);
+    const test = await db.query.tests.findFirst({
+      where: eq(tests.id, testId),
+      with: {
+        questions: { orderBy: (q, { asc }) => [asc(q.orderIndex)] },
+        teacher: { columns: { name: true } },
+      },
+    });
+    if (!test) return res.status(404).json({ error: 'Topilmadi' });
+
+    const pdfDoc = await PDFDocument.create();
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const letters = ['A', 'B', 'C', 'D'];
+    const W = 595, H = 842, M = 40;
+    const colW = (W - M * 2 - 20) / 2;
+    const teacherName = (test as any).teacher?.name || 'Admin';
+
+    let page = pdfDoc.addPage([W, H]);
+    let yL = H - M, yR = H - M;
+    let col = 0;
+
+    const drawHeader = () => {
+      page.drawRectangle({ x: 0, y: H - 28, width: W, height: 28, color: rgb(0.31, 0.25, 0.85) });
+      page.drawText('testifyuz.online', { x: M, y: H - 20, size: 11, font: boldFont, color: rgb(1, 1, 1) });
+      const tw = boldFont.widthOfTextAtSize(teacherName, 11);
+      page.drawText(teacherName, { x: W - M - tw, y: H - 20, size: 11, font: boldFont, color: rgb(1, 1, 1) });
+      page.drawText(test.title, { x: M, y: H - 50, size: 13, font: boldFont });
+      page.drawText(`${test.subject} | ${(test as any).questions.length} savol | ${Math.floor(test.durationSeconds / 60)} daqiqa`, { x: M, y: H - 66, size: 9, font, color: rgb(0.5, 0.5, 0.5) });
+      page.drawLine({ start: { x: M, y: H - 76 }, end: { x: W - M, y: H - 76 }, thickness: 0.5, color: rgb(0.8, 0.8, 0.8) });
+      yL = H - 92; yR = H - 92;
+    };
+    drawHeader();
+
+    const wrap = (txt: string, mw: number, sz: number) => {
+      const ws = txt.split(' '); const ls: string[] = []; let cur = '';
+      for (const w of ws) {
+        const t2 = cur ? `${cur} ${w}` : w;
+        if (font.widthOfTextAtSize(t2, sz) > mw && cur) { ls.push(cur); cur = w; } else cur = t2;
+      }
+      if (cur) ls.push(cur);
+      return ls;
+    };
+
+    for (let i = 0; i < (test as any).questions.length; i++) {
+      const q = (test as any).questions[i];
+      const x = col === 0 ? M : M + colW + 20;
+      let y = col === 0 ? yL : yR;
+      const need = 16 + q.options.length * 13 + 8;
+      if (y - need < M + 20) {
+        if (col === 0) {
+          col = 1; y = yR;
+          if (y - need < M + 20) { page = pdfDoc.addPage([W, H]); drawHeader(); col = 0; y = yL; }
+        } else {
+          page = pdfDoc.addPage([W, H]); drawHeader(); col = 0; y = yL;
+        }
+      }
+      const qLines = wrap(`${i + 1}. ${q.text}`, colW - 4, 9);
+      for (const l of qLines) { page.drawText(l, { x, y, size: 9, font: boldFont }); y -= 12; }
+      for (let j = 0; j < q.options.length; j++) {
+        const optLines = wrap(`${letters[j]}) ${(q.options as string[])[j]}`, colW - 12, 8.5);
+        for (const l of optLines) { page.drawText(l, { x: x + 8, y, size: 8.5, font }); y -= 11; }
+      }
+      y -= 5;
+      if (col === 0) yL = y; else yR = y;
     }
-  };
 
-  return (
-    <div className="min-h-screen bg-slate-50">
-      <TopNav role="admin" />
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-6">Admin Dashboard</h1>
+    // Javoblar sahifasi
+    const ap = pdfDoc.addPage([W, H]);
+    ap.drawRectangle({ x: 0, y: H - 28, width: W, height: 28, color: rgb(0.31, 0.25, 0.85) });
+    ap.drawText('testifyuz.online', { x: M, y: H - 20, size: 11, font: boldFont, color: rgb(1, 1, 1) });
+    const tw2 = boldFont.widthOfTextAtSize(teacherName, 11);
+    ap.drawText(teacherName, { x: W - M - tw2, y: H - 20, size: 11, font: boldFont, color: rgb(1, 1, 1) });
+    ap.drawText("TO'G'RI JAVOBLAR", { x: M, y: H - 55, size: 13, font: boldFont });
+    ap.drawText(test.title, { x: M, y: H - 72, size: 10, font });
 
-        <div className="flex bg-white rounded-xl border border-slate-200 p-1 mb-6 gap-1 w-full sm:w-auto sm:inline-flex">
-          {[
-            ['stats', 'Statistika'],
-            ['teachers', "O'qituvchilar"],
-            ['tests', 'Testlar'],
-          ].map(([v, l]) => (
-            <button
-              key={v}
-              onClick={() => setTab(v as any)}
-              className={`flex-1 sm:flex-none px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                tab === v ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+    const cw = 42, ch = 22;
+    const cols2 = Math.floor((W - M * 2) / cw);
+    let tx = M, ty = H - 100;
+    const qs = (test as any).questions;
+    const rows = Math.ceil(qs.length / cols2);
 
-        {/* Stats */}
-        {tab === 'stats' && stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { label: "O'qituvchilar", value: stats.teacherCount, color: 'from-blue-500 to-blue-600' },
-              { label: 'Testlar', value: stats.testCount, color: 'from-indigo-500 to-violet-600' },
-              { label: 'Urinishlar', value: stats.attemptCount, color: 'from-violet-500 to-purple-600' },
-              { label: 'Ommaviy', value: stats.publicCount, color: 'from-emerald-500 to-teal-600' },
-              { label: 'Shaxsiy', value: stats.privateCount, color: 'from-amber-500 to-orange-600' },
-              { label: 'Faol', value: stats.activeCount, color: 'from-green-500 to-emerald-600' },
-            ].map((s, i) => (
-              <div key={i} className={`bg-gradient-to-br ${s.color} rounded-2xl p-5 text-white`}>
-                <p className="text-3xl font-bold">{s.value}</p>
-                <p className="text-xs opacity-80 mt-1">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
+    for (let r = 0; r < rows; r++) {
+      const start = r * cols2;
+      const end = Math.min(start + cols2, qs.length);
+      for (let i = start; i < end; i++) {
+        const ci = i - start;
+        ap.drawRectangle({ x: tx + ci * cw, y: ty - ch, width: cw, height: ch, borderColor: rgb(0.8, 0.8, 0.8), borderWidth: 0.5, color: rgb(0.95, 0.95, 0.95) });
+        ap.drawText(`${i + 1}`, { x: tx + ci * cw + cw / 2 - 5, y: ty - ch + 7, size: 9, font: boldFont });
+      }
+      ty -= ch;
+      for (let i = start; i < end; i++) {
+        const ci = i - start;
+        ap.drawRectangle({ x: tx + ci * cw, y: ty - ch, width: cw, height: ch, borderColor: rgb(0.8, 0.8, 0.8), borderWidth: 0.5, color: rgb(0.9, 1, 0.9) });
+        ap.drawText(letters[qs[i].correctAnswer], { x: tx + ci * cw + cw / 2 - 4, y: ty - ch + 7, size: 10, font: boldFont, color: rgb(0.1, 0.5, 0.1) });
+      }
+      ty -= ch + 6;
+    }
 
-        {/* Teachers */}
-        {tab === 'teachers' && (
-          <>
-            <div className="flex justify-end mb-4">
-              <button
-                onClick={() => setAddModal(true)}
-                className="btn-primary flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                O'qituvchi qo'shish
-              </button>
-            </div>
-            <div className="card overflow-hidden p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      {['F.I.SH', 'ID', 'Tarif', 'Login', 'Parol', 'Ommaviy', 'Shaxsiy', 'Sana', 'Amallar'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {teachers.map((t: any) => (
-                      <tr key={t.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 text-sm font-medium text-slate-800">{t.name}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1">
-                            <span className="font-mono text-xs font-bold text-indigo-600">
-                              {t.teacherId || '—'}
-                            </span>
-                            {t.teacherId && (
-                              <button
-                                onClick={() => { navigator.clipboard.writeText(t.teacherId); toast('Nusxalandi', 'success'); }}
-                                className="text-slate-400 hover:text-indigo-600"
-                              >
-                                <Copy className="w-3 h-3" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className="text-xs bg-violet-100 text-violet-700 px-2 py-0.5 rounded-full font-medium">
-                            {t.currentTariff || 'Testify Ufq'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm font-mono text-slate-600">{t.login}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-mono">
-                              {showPassMap[t.id] ? t.password : '••••••'}
-                            </span>
-                            <button
-                              onClick={() => setShowPassMap(m => ({ ...m, [t.id]: !m[t.id] }))}
-                              className="text-slate-400 hover:text-slate-600"
-                            >
-                              {showPassMap[t.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                            </button>
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(t.password); toast('Nusxalandi', 'success'); }}
-                              className="text-slate-400 hover:text-slate-600"
-                            >
-                              <Copy className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={cn('font-semibold', t.publicCount >= t.publicTestLimit ? 'text-red-500' : 'text-slate-700')}>
-                            {t.publicCount}
-                          </span>
-                          <span className="text-slate-400">/{t.publicTestLimit}</span>
-                        </td>
-                        <td className="px-4 py-3 text-sm">
-                          <span className={cn('font-semibold', t.privateCount >= t.privateTestLimit ? 'text-red-500' : 'text-slate-700')}>
-                            {t.privateCount}
-                          </span>
-                          <span className="text-slate-400">/{t.privateTestLimit}</span>
-                        </td>
-                        <td className="px-4 py-3 text-xs text-slate-500">{formatDate(t.createdAt)}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => { setLimitModal(t); setLimitForm({ pub: t.publicTestLimit, priv: t.privateTestLimit }); }}
-                              className="p-1.5 text-indigo-500 hover:bg-indigo-50 rounded-lg"
-                            >
-                              <Edit2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => setDeleteTeacher(t.id)}
-                              className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Tests */}
-        {tab === 'tests' && (
-          <div className="card overflow-hidden p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-slate-50 border-b border-slate-200">
-                  <tr>
-                    {['Test nomi', "O'qituvchi", 'Kod', 'Tur', "Qo'shilgan", 'Holat', 'Amallar'].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {tests.map((t: any) => (
-                    <tr key={t.id} className="hover:bg-slate-50">
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-medium text-slate-800 max-w-xs truncate">{t.title}</p>
-                        <p className="text-xs text-slate-500">{t.subject}</p>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-slate-600">{t.teacherName}</td>
-                      <td className="px-4 py-3 font-mono text-xs font-bold text-indigo-600">{t.code}</td>
-                      <td className="px-4 py-3">
-                        <span className={t.type === 'public' ? 'badge-public' : 'badge-private'}>
-                          {t.type === 'public' ? 'Ommaviy' : 'Shaxsiy'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-500">{formatDate(t.createdAt)}</td>
-                      <td className="px-4 py-3">
-                        <span className={t.isActive ? 'badge-active' : 'badge-stopped'}>
-                          {t.isActive ? 'Faol' : "To'xtatilgan"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex gap-1">
-                          <button
-                            onClick={() => handlePdf(t.id)}
-                            className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-lg"
-                            title="PDF"
-                          >
-                            <Download className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => toggleTestMut.mutate({ id: t.id, active: t.isActive })}
-                            className={cn('p-1.5 rounded-lg', t.isActive ? 'text-amber-500 hover:bg-amber-50' : 'text-emerald-500 hover:bg-emerald-50')}
-                          >
-                            {t.isActive ? <StopCircle className="w-4 h-4" /> : <PlayCircle className="w-4 h-4" />}
-                          </button>
-                          <button
-                            onClick={() => setDeleteTest(t.id)}
-                            className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Add teacher modal */}
-      {addModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="card max-w-sm w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg">O'qituvchi qo'shish</h3>
-              <button onClick={() => setAddModal(false)}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              {[
-                ['name', 'Ism Familiya', 'Abdullayev Akbar'],
-                ['login', 'Login', 'akbar123'],
-                ['password', 'Parol', '••••'],
-              ].map(([f, l, p]) => (
-                <div key={f}>
-                  <label className="text-sm font-medium text-slate-700 block mb-1">{l}</label>
-                  <input
-                    className="input"
-                    placeholder={p}
-                    value={(addForm as any)[f]}
-                    onChange={e => setAddForm(x => ({ ...x, [f]: e.target.value }))}
-                  />
-                </div>
-              ))}
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setAddModal(false)} className="btn-ghost flex-1">Bekor</button>
-                <button onClick={() => addMut.mutate()} disabled={addMut.isPending} className="btn-primary flex-1">
-                  Qo'shish
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Limit modal */}
-      {limitModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="card max-w-sm w-full">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-lg">{limitModal.name} — Limit</h3>
-              <button onClick={() => setLimitModal(null)}>
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="space-y-3">
-              <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Ommaviy test limit</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="input"
-                  value={limitForm.pub}
-                  onChange={e => setLimitForm(f => ({ ...f, pub: parseInt(e.target.value) || 0 }))}
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium text-slate-700 block mb-1">Shaxsiy test limit</label>
-                <input
-                  type="number"
-                  min={0}
-                  className="input"
-                  value={limitForm.priv}
-                  onChange={e => setLimitForm(f => ({ ...f, priv: parseInt(e.target.value) || 0 }))}
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setLimitModal(null)} className="btn-ghost flex-1">Bekor</button>
-                <button onClick={() => limitMut.mutate({ id: limitModal.id })} className="btn-primary flex-1">
-                  Saqlash
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete teacher */}
-      {deleteTeacher && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="card max-w-sm w-full">
-            <h3 className="font-bold text-lg mb-2">O'qituvchini o'chirish</h3>
-            <p className="text-slate-500 text-sm mb-6">Barcha testlari va natijalari ham o'chadi!</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteTeacher(null)} className="btn-ghost flex-1">Bekor</button>
-              <button onClick={() => delTeacherMut.mutate(deleteTeacher)} className="btn-danger flex-1">
-                O'chirish
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete test */}
-      {deleteTest && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="card max-w-sm w-full">
-            <h3 className="font-bold text-lg mb-2">Testni o'chirish</h3>
-            <p className="text-slate-500 text-sm mb-6">Barcha natijalar ham o'chadi.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeleteTest(null)} className="btn-ghost flex-1">Bekor</button>
-              <button onClick={() => delTestMut.mutate(deleteTest)} className="btn-danger flex-1">
-                O'chirish
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
+    const bytes = await pdfDoc.save();
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${test.code}_test.pdf"`);
+    res.send(Buffer.from(bytes));
+  } catch (e: any) {
+    console.error('PDF error:', e);
+    res.status(500).json({ error: 'PDF xatosi: ' + e.message });
+  }
+});

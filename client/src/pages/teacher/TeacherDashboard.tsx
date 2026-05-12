@@ -52,7 +52,7 @@ export default function TeacherDashboard() {
 
   const handlePdf = async (id: number, type: 'test' | 'results') => {
     try {
-      await api.downloadPdf(`/api/teachers/tests/${id}/${type === 'test' ? 'pdf' : 'results/pdf'}`, `${type}-${id}.pdf`);
+      await api.downloadPdf(`/api/teachers/tests/${id}/${type === 'test' ? 'docx' : 'results/docx'}`, `${type}-${id}.docx`);
     } catch { toast('PDF xatosi', 'error'); }
   };
 

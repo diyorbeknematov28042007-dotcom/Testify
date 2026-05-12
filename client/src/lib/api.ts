@@ -9,6 +9,16 @@ function getHeaders() {
   return h;
 }
 
+function getPdfHeaders() {
+  const h: Record<string, string> = {};
+  const adminToken = localStorage.getItem('adminToken');
+  const teacherToken = localStorage.getItem('teacherToken');
+  // PDF uchun ikkalasini ham yuboramiz
+  if (adminToken) h['x-admin-token'] = adminToken;
+  if (teacherToken) h['x-teacher-token'] = teacherToken;
+  return h;
+}
+
 async function req(method: string, path: string, body?: any) {
   const res = await fetch(`${BASE}${path}`, {
     method,
@@ -68,6 +78,24 @@ export const api = {
   adminStopTest: (id: number) => req('POST', `/admin/tests/${id}/stop`),
   adminRestartTest: (id: number) => req('POST', `/admin/tests/${id}/restart`),
   adminDeleteTest: (id: number) => req('DELETE', `/admin/tests/${id}`),
+
+  // Admin PDF - teacher token ishlatadi
+  downloadPdfAsAdmin: async (testId: number, filename: string) => {
+    const apiBase = import.meta.env.VITE_API_URL || '';
+    // Admin barcha o'qituvchilar testini ko'ra oladi
+    // Shuning uchun admin token bilan maxsus endpoint
+    const fullUrl = `${apiBase}/api/admin/tests/${testId}/pdf`;
+    const res = await fetch(fullUrl, { headers: getHeaders() });
+    if (!res.ok) throw new Error(`PDF xatosi: ${res.status}`);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+  },
 
   // PDF yuklab olish
   downloadPdf: async (url: string, filename: string) => {

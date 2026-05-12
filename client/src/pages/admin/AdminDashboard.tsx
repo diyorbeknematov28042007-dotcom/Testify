@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Users, BookOpen, Plus, Trash2, Edit2, Eye, EyeOff, Copy, Download, StopCircle, PlayCircle, X } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
-import { formatDate, cn, downloadDocxFile } from '../../lib/utils';
+import { formatDate, cn } from '../../lib/utils';
 import { toast } from '../../hooks/useToast';
 
 export default function AdminDashboard() {
@@ -48,10 +48,10 @@ export default function AdminDashboard() {
   });
 
   const handleDocx = async (id: number) => {
-    try {
-      const res = await api.downloadDocx(id, true);
-      await downloadDocxFile(res as any, `test-${id}.docx`);
-    } catch { toast('DOCX xatosi', 'error'); }
+  try {
+    await api.downloadPdf(`/api/admin/tests/${id}/pdf`, `test-${id}.pdf`);
+  } catch { toast('PDF xatosi', 'error'); }
+};
   };
 
   return (

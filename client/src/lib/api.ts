@@ -71,16 +71,12 @@ export const api = {
 
   // PDF yuklab olish
   downloadPdf: async (url: string, filename: string) => {
-    const adminToken = localStorage.getItem('adminToken');
-    const teacherToken = localStorage.getItem('teacherToken');
-    const token = adminToken || teacherToken || '';
-    const header = adminToken ? 'x-admin-token' : 'x-teacher-token';
     const apiBase = import.meta.env.VITE_API_URL || '';
     const fullUrl = `${apiBase}${url}`;
 
     let res: Response;
     try {
-      res = await fetch(fullUrl, { headers: { [header]: token } });
+      res = await fetch(fullUrl, { headers: getHeaders() });
     } catch (e) {
       throw new Error(`Serverga ulanib bo'lmadi: ${e}`);
     }

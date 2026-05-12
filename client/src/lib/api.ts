@@ -71,27 +71,46 @@ export const api = {
 
   // PDF yuklab olish
   downloadPdf: async (url: string, filename: string) => {
-    const token =
-      localStorage.getItem('adminToken') ||
-      localStorage.getItem('teacherToken') ||
-      '';
-    const header = localStorage.getItem('adminToken')
-      ? 'x-admin-token'
-      : 'x-teacher-token';
-
+    const adminToken = localStorage.getItem('adminToken');
+    const teacherToken = localStorage.getItem('teacherToken');
+    const token = adminToken || teacherToken || '';
+    const header = adminToken ? 'x-admin-token' : 'x-teacher-token';
     const apiBase = import.meta.env.VITE_API_URL || '';
     const fullUrl = `${apiBase}${url}`;
 
-    const res = await fetch(fullUrl, {
-      headers: { [header]: token },
-    });
+    let res: Response;
+    try {
+      res = await fetch(fullUrl, { headers: { [header]: token } });
+    } catch (e) {
+      throw new Error(`Serverga ulanib bo'lmadi: ${e}`);
+    }
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || 'PDF xatosi');
+      let errMsg = `Server xatosi: ${res.status}`;
+      try {
+        const errData = await res.json();
+        errMsg = errData.error || errMsg;
+      } catch {}
+      throw new Error(errMsg);
+    }
+
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('pdf')) {
+      // JSON xato qaytdi
+      try {
+        const errData = await res.json();
+        throw new Error(errData.error || 'PDF yaratishda xato');
+      } catch (e: any) {
+        if (e.message !== 'PDF yaratishda xato') throw e;
+        throw new Error('PDF yaratishda xato');
+      }
     }
 
     const blob = await res.blob();
+    if (blob.size < 100) {
+      throw new Error("PDF bo'sh qaytdi — test savollarini tekshiring");
+    }
+
     const objectUrl = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = objectUrl;

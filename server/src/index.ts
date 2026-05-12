@@ -14,10 +14,7 @@ const PORT = process.env.PORT || 3001;
 
 app.use(helmet());
 app.use(compression() as any);
-app.use(cors({
-  origin: '*',
-  credentials: false,
-}));
+app.use(cors({ origin: '*', credentials: false }));
 app.use(express.json({ limit: '10mb' }));
 
 app.use('/api/auth', authRouter);

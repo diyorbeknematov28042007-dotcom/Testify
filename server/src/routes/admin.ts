@@ -3,7 +3,6 @@ import { db } from '../db';
 import { teachers, tests, results } from '../db/schema';
 import { eq, count } from 'drizzle-orm';
 import { adminAuth } from '../middleware/auth';
-import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 export const adminRouter = Router();
 adminRouter.use(adminAuth);
@@ -153,6 +152,11 @@ adminRouter.get('/tests/:id/pdf', async (req, res) => {
     });
     if (!test) return res.status(404).json({ error: 'Topilmadi' });
 
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const pdfLib = require('pdf-lib');
+    const PDFDocument = pdfLib.PDFDocument;
+    const rgb = pdfLib.rgb;
+    const StandardFonts = pdfLib.StandardFonts;
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

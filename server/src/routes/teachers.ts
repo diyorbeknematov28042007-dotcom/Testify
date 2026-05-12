@@ -3,6 +3,7 @@ import { db } from '../db';
 import { tests, questions, results, teachers, teacherAuthTokens, promocodes } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { teacherAuth } from '../middleware/auth';
+import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 
 export const teachersRouter = Router();
 teachersRouter.use(teacherAuth);
@@ -163,7 +164,7 @@ teachersRouter.get('/tests/:id/pdf', async (req, res) => {
     });
     if (!test) return res.status(404).json({ error: 'Topilmadi' });
 
-    const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+    // pdf-lib already imported at top
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
@@ -260,7 +261,7 @@ teachersRouter.get('/tests/:id/results/pdf', async (req, res) => {
     if (!test) return res.status(404).json({ error: 'Topilmadi' });
 
     const resultsList = await db.query.results.findMany({ where: eq(results.testId, testId), orderBy: (r, { desc }) => [desc(r.score)] });
-    const { PDFDocument, rgb, StandardFonts } = await import('pdf-lib');
+    // pdf-lib already imported at top
     const pdfDoc = await PDFDocument.create();
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);

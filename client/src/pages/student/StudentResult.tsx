@@ -1,6 +1,6 @@
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Home, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Home, Eye, Clock } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
@@ -23,12 +23,28 @@ export function StudentResult() {
   }
 
   const pct = Math.round((result.correctAnswers / result.totalQuestions) * 100);
+  const autoSubmitted = result.autoSubmitted === true;
 
   return (
     <div className="min-h-screen bg-slate-50">
       <TopNav role="student" />
       <div className="max-w-md mx-auto px-4 py-12">
         <div className="card text-center">
+
+          {/* Auto-submit xabari */}
+          {autoSubmitted && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-left">
+              <div className="flex items-center gap-2 mb-1">
+                <Clock className="w-5 h-5 text-amber-600 shrink-0" />
+                <p className="font-bold text-amber-800 text-sm">Vaqt tugadi — avtomatik saqlandi</p>
+              </div>
+              <p className="text-xs text-amber-700 leading-relaxed">
+                Test vaqti tugagani sababli javoblaringiz avtomatik ravishda saqlanib, natija hisoblab chiqildi.
+                Bu oddiy topshirishdan hech qanday farqi yo'q.
+              </p>
+            </div>
+          )}
+
           <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center mx-auto mb-6 shadow-xl">
             <span className="text-3xl font-extrabold text-white">{pct}%</span>
           </div>
@@ -47,7 +63,7 @@ export function StudentResult() {
           {result.wrongAnswers?.length > 0 && (
             <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-6 text-left">
               <p className="text-xs font-semibold text-amber-700 mb-1">Noto'g'ri javoblar:</p>
-              <p className="text-sm text-amber-800">{result.wrongAnswers.join(', ')}-savollar</p>
+              <p className="text-sm text-amber-800">{result.wrongAnswers.slice(0, 10).join(', ')}{result.wrongAnswers.length > 10 ? '...' : ''}-savollar</p>
             </div>
           )}
           <div className="flex gap-3">
@@ -80,7 +96,7 @@ export function StudentReview() {
     <div className="min-h-screen bg-slate-50">
       <TopNav role="student" />
       <div className="max-w-3xl mx-auto px-4 py-12 space-y-4">
-        {[1,2,3].map(i => <div key={i} className="card animate-pulse h-40" />)}
+        {[1, 2, 3].map(i => <div key={i} className="card animate-pulse h-40" />)}
       </div>
     </div>
   );
@@ -115,8 +131,7 @@ export function StudentReview() {
                     const isCorrectOpt = j === correct;
                     const isUserOpt = j === userAns;
                     return (
-                      <div key={j} className={cn(
-                        'flex items-center gap-3 p-3 rounded-xl border-2',
+                      <div key={j} className={cn('flex items-center gap-3 p-3 rounded-xl border-2',
                         isCorrectOpt && isUserOpt && 'border-emerald-400 bg-emerald-50',
                         isCorrectOpt && !isUserOpt && 'border-emerald-300 bg-emerald-50',
                         !isCorrectOpt && isUserOpt && 'border-amber-400 bg-amber-50',

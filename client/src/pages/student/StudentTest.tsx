@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation } from 'wouter';
-import { Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { Clock, CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { formatTime, cn } from '../../lib/utils';
@@ -19,11 +19,23 @@ export default function StudentTest() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [loading, setLoading] = useState(false);
   const [confirmSubmit, setConfirmSubmit] = useState(false);
+  const [warning5, setWarning5] = useState(false);
+  const [warning1, setWarning1] = useState(false);
+  const [autoSaved, setAutoSaved] = useState(false);
+
   const isSubmittingRef = useRef(false);
   const submittedRef = useRef(false);
   const startTimeRef = useRef<number>(0);
+  const answersRef = useRef<(number | null)[]>([]);
+  const testDataRef = useRef<any>(null);
+  const warning5Shown = useRef(false);
+  const warning1Shown = useRef(false);
 
   const storageKey = `test_session_${code}`;
+
+  // Keep refs in sync
+  useEffect(() => { answersRef.current = answers; }, [answers]);
+  useEffect(() => { testDataRef.current = testData; }, [testData]);
 
   // Restore session
   useEffect(() => {
@@ -40,6 +52,9 @@ export default function StudentTest() {
           if (remaining > 0) {
             setTimeLeft(remaining);
             setStep('test');
+          } else {
+            // Time already expired — auto submit
+            handleAutoSubmit(savedAnswers, { ...td, sessionId: session });
           }
         }
       } catch {}
@@ -51,9 +66,21 @@ export default function StudentTest() {
     if (step !== 'test') return;
     const interval = setInterval(() => {
       setTimeLeft(prev => {
+        // 5 daqiqa eslatma
+        if (prev === 300 && !warning5Shown.current) {
+          warning5Shown.current = true;
+          setWarning5(true);
+          setTimeout(() => setWarning5(false), 8000);
+        }
+        // 1 daqiqa eslatma
+        if (prev === 60 && !warning1Shown.current) {
+          warning1Shown.current = true;
+          setWarning1(true);
+          setTimeout(() => setWarning1(false), 8000);
+        }
         if (prev <= 1) {
           clearInterval(interval);
-          handleSubmit(true);
+          handleAutoSubmit(answersRef.current, testDataRef.current);
           return 0;
         }
         return prev - 1;
@@ -80,12 +107,12 @@ export default function StudentTest() {
   }, [step]);
 
   const saveSession = (newAnswers: (number | null)[]) => {
-    if (!testData) return;
+    if (!testDataRef.current) return;
     localStorage.setItem(storageKey, JSON.stringify({
-      session: testData.sessionId,
+      session: testDataRef.current.sessionId,
       answers: newAnswers,
       startTime: startTimeRef.current,
-      testData,
+      testData: testDataRef.current,
     }));
   };
 
@@ -96,8 +123,11 @@ export default function StudentTest() {
       const data = await api.joinTest(code!, studentName.trim(), telegram.trim() || undefined);
       const initialAnswers = new Array(data.questions.length).fill(null);
       startTimeRef.current = Date.now();
-      setTestData({ ...data, sessionId: data.sessionId });
+      const td = { ...data, sessionId: data.sessionId };
+      setTestData(td);
+      testDataRef.current = td;
       setAnswers(initialAnswers);
+      answersRef.current = initialAnswers;
       setTimeLeft(data.test.durationSeconds);
       localStorage.setItem(storageKey, JSON.stringify({
         session: data.sessionId,
@@ -114,16 +144,57 @@ export default function StudentTest() {
   };
 
   const handleAnswer = (qIdx: number, ans: number) => {
-    const newAnswers = [...answers];
+    const newAnswers = [...answersRef.current];
     newAnswers[qIdx] = ans;
     setAnswers(newAnswers);
+    answersRef.current = newAnswers;
     saveSession(newAnswers);
+  };
+
+  // Auto submit — vaqt tugaganda
+  const handleAutoSubmit = async (currentAnswers: (number | null)[], currentTestData: any) => {
+    if (isSubmittingRef.current || submittedRef.current) return;
+    if (!currentTestData?.sessionId) return;
+
+    isSubmittingRef.current = true;
+    submittedRef.current = true;
+    setAutoSaved(true);
+
+    const submit = async (attempt = 0): Promise<any> => {
+      try {
+        return await api.submitTest(code!, currentTestData.sessionId, currentAnswers);
+      } catch (e: any) {
+        if (e.message === 'Allaqachon topshirilgan') return null;
+        if (attempt < 3) {
+          await new Promise(r => setTimeout(r, (attempt + 1) * 1000));
+          return submit(attempt + 1);
+        }
+        throw e;
+      }
+    };
+
+    try {
+      const result = await submit();
+      localStorage.removeItem(storageKey);
+      if (result) {
+        localStorage.setItem(`test_result_${code}`, JSON.stringify({ ...result, autoSubmitted: true }));
+        localStorage.setItem(`test_answers_${code}`, JSON.stringify(currentAnswers));
+        if (currentTestData.questions) {
+          localStorage.setItem(`test_questions_${code}`, JSON.stringify(currentTestData.questions));
+        }
+      }
+      setLoc(`/student/test/${code}/result`);
+    } catch (e: any) {
+      isSubmittingRef.current = false;
+      submittedRef.current = false;
+      setAutoSaved(false);
+    }
   };
 
   const handleSubmit = async (auto = false) => {
     if (isSubmittingRef.current || submittedRef.current) return;
     if (!auto && !confirmSubmit) {
-      const unanswered = answers.filter(a => a === null).length;
+      const unanswered = answersRef.current.filter(a => a === null).length;
       if (unanswered > 0) {
         setConfirmSubmit(true);
         return;
@@ -136,7 +207,7 @@ export default function StudentTest() {
 
     const submit = async (attempt = 0): Promise<any> => {
       try {
-        return await api.submitTest(code!, testData.sessionId, answers);
+        return await api.submitTest(code!, testDataRef.current.sessionId, answersRef.current);
       } catch (e: any) {
         if (e.message === 'Allaqachon topshirilgan') return null;
         if (attempt < 3) {
@@ -152,8 +223,10 @@ export default function StudentTest() {
       localStorage.removeItem(storageKey);
       if (result) {
         localStorage.setItem(`test_result_${code}`, JSON.stringify(result));
-        localStorage.setItem(`test_answers_${code}`, JSON.stringify(answers));
-        localStorage.setItem(`test_questions_${code}`, JSON.stringify(testData.questions));
+        localStorage.setItem(`test_answers_${code}`, JSON.stringify(answersRef.current));
+        if (testDataRef.current?.questions) {
+          localStorage.setItem(`test_questions_${code}`, JSON.stringify(testDataRef.current.questions));
+        }
       }
       setLoc(`/student/test/${code}/result`);
     } catch (e: any) {
@@ -166,6 +239,8 @@ export default function StudentTest() {
   const answered = answers.filter(a => a !== null).length;
   const total = testData?.questions?.length || 0;
   const progress = total > 0 ? (answered / total) * 100 : 0;
+  const timerColor = timeLeft > 300 ? 'text-indigo-600' : timeLeft > 60 ? 'text-amber-500' : 'text-red-600';
+  const timerPulse = timeLeft <= 300;
 
   if (step === 'join') {
     return (
@@ -197,11 +272,42 @@ export default function StudentTest() {
     );
   }
 
-  const timerColor = timeLeft > 600 ? 'text-indigo-600' : timeLeft > 300 ? 'text-amber-500' : 'text-red-600';
-  const timerPulse = timeLeft <= 300;
-
   return (
     <div className="min-h-screen bg-slate-50 select-none">
+
+      {/* 5 daqiqa eslatma */}
+      {warning5 && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-amber-500 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-bounce">
+          <AlertTriangle className="w-6 h-6 shrink-0" />
+          <div>
+            <p className="font-bold text-sm">⚠️ Diqqat! 5 daqiqa qoldi!</p>
+            <p className="text-xs opacity-90">Javoblaringizni tekshiring va yakunlang</p>
+          </div>
+        </div>
+      )}
+
+      {/* 1 daqiqa eslatma */}
+      {warning1 && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-red-600 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3 animate-pulse">
+          <AlertCircle className="w-6 h-6 shrink-0" />
+          <div>
+            <p className="font-bold text-sm">🚨 1 daqiqa qoldi!</p>
+            <p className="text-xs opacity-90">Tezda yakunlash tugmasini bosing!</p>
+          </div>
+        </div>
+      )}
+
+      {/* Avtomatik saqlash */}
+      {autoSaved && (
+        <div className="fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-indigo-600 text-white px-6 py-4 rounded-2xl shadow-xl flex items-center gap-3">
+          <CheckCircle className="w-6 h-6 shrink-0" />
+          <div>
+            <p className="font-bold text-sm">Vaqt tugadi — avtomatik saqlanmoqda...</p>
+            <p className="text-xs opacity-90">Javoblaringiz saqlanib, natija ko'rsatiladi</p>
+          </div>
+        </div>
+      )}
+
       {/* Sticky header */}
       <div className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
@@ -231,16 +337,9 @@ export default function StudentTest() {
             {q.imageUrl && <img src={q.imageUrl} alt="" className="rounded-lg mb-4 max-h-48 object-contain" />}
             <div className="space-y-2">
               {(q.options as string[]).map((opt, j) => (
-                <label
-                  key={j}
-                  className={cn(
-                    'flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all',
-                    answers[i] === j ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50'
-                  )}
-                >
+                <label key={j} className={cn('flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all', answers[i] === j ? 'border-indigo-500 bg-indigo-50' : 'border-slate-200 hover:border-indigo-300 hover:bg-slate-50')}>
                   <input type="radio" name={`q-${i}`} value={j} checked={answers[i] === j} onChange={() => handleAnswer(i, j)} className="sr-only" />
-                  <span className={cn('w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0',
-                    answers[i] === j ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300 text-slate-500')}>
+                  <span className={cn('w-7 h-7 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0', answers[i] === j ? 'border-indigo-500 bg-indigo-500 text-white' : 'border-slate-300 text-slate-500')}>
                     {['A', 'B', 'C', 'D'][j]}
                   </span>
                   <span className="text-sm text-slate-700">{opt}</span>

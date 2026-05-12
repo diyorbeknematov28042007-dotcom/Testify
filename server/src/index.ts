@@ -12,6 +12,9 @@ import { botRouter } from './routes/bot';
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+// Render.com proxy uchun kerak
+app.set('trust proxy', 1);
+
 app.use(helmet());
 app.use(compression() as any);
 app.use(cors({ origin: '*', credentials: false }));

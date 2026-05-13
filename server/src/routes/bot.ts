@@ -28,7 +28,7 @@ botRouter.post('/verify', async (req, res) => {
     });
     if (existingByTg) {
       return res.status(400).json({
-        error: 'Bu Telegram akkaunt boshqa foydalanuvchiga bog'langan',
+        error: "Bu Telegram akkaunt boshqa foydalanuvchiga bog`langan",
         alreadyLinked: true,
         teacherName: existingByTg.name,
       });

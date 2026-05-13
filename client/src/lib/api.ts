@@ -63,6 +63,9 @@ export const api = {
   stopTest: (id: number) => req('POST', `/teachers/tests/${id}/stop`),
   getTestResults: (id: number) => req('GET', `/teachers/tests/${id}/results`),
 
+  resendVerifyCode: (login: string) =>
+    req('POST', '/auth/teacher/resend-code', { login }),
+
   // Promocode
   getPromocode: () => req('GET', '/teachers/promocode'),
   createPromocode: () => req('POST', '/teachers/promocode'),

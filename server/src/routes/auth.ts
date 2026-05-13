@@ -66,6 +66,7 @@ authRouter.post('/teacher/login', async (req, res) => {
         needsVerification: true,
         verifyCode: teacher.verifyCode,
         teacherId: teacher.teacherId,
+        login: teacher.login,
       });
 
     const token = uuidv4();

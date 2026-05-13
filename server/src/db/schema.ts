@@ -13,6 +13,10 @@ export const teachers = pgTable('teachers', {
   publicTestLimit: integer('public_test_limit').default(3).notNull(),
   privateTestLimit: integer('private_test_limit').default(1).notNull(),
   currentTariff: text('current_tariff').default('Testify Ufq').notNull(),
+  telegramId: text('telegram_id').unique(),
+  isVerified: boolean('is_verified').default(false).notNull(),
+  verifyCode: text('verify_code'),
+  verifyCodeExpiry: timestamp('verify_code_expiry'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -83,6 +87,7 @@ export const promocodes = pgTable('promocodes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// Relations
 export const teachersRelations = relations(teachers, ({ many }) => ({
   tests: many(tests),
   authTokens: many(teacherAuthTokens),

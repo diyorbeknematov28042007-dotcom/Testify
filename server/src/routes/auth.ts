@@ -119,7 +119,8 @@ authRouter.post('/admin/login', async (req, res) => {
     if (username !== ADMIN_USERNAME)
       return res.status(401).json({ error: "Noto'g'ri username" });
 
-    const token = `admin_${uuidv4()}`;
+    // Stable token — server qayta ishga tushsa ham ishlaydi
+    const token = `admin_${Buffer.from(ADMIN_USERNAME).toString('base64')}`;
     res.json({ ok: true, token });
   } catch (e) {
     res.status(500).json({ error: 'Server xatosi' });

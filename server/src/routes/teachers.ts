@@ -3,6 +3,10 @@ import { db } from '../db';
 import { tests, questions, results, teachers, teacherAuthTokens, promocodes } from '../db/schema';
 import { eq, and } from 'drizzle-orm';
 import { teacherAuth } from '../middleware/auth';
+import {
+  Document, Packer, Paragraph, Table, TableRow, TableCell,
+  TextRun, AlignmentType, BorderStyle, WidthType, ShadingType, convertInchesToTwip,
+} from 'docx';
 
 export const teachersRouter = Router();
 teachersRouter.use(teacherAuth);
@@ -163,12 +167,7 @@ teachersRouter.get('/tests/:id/docx', async (req, res) => {
     });
     if (!test) return res.status(404).json({ error: 'Topilmadi' });
 
-    const pdfLib = require('docx');
-    const {
-      Document, Packer, Paragraph, Table, TableRow, TableCell,
-      TextRun, AlignmentType, BorderStyle, WidthType, HeadingLevel,
-      ShadingType, convertInchesToTwip
-    } = pdfLib;
+    // docx imported at top
 
     const letters = ['A', 'B', 'C', 'D'];
     const qs = (test as any).questions;
@@ -324,11 +323,7 @@ teachersRouter.get('/tests/:id/results/docx', async (req, res) => {
       orderBy: (r, { desc }) => [desc(r.score)],
     });
 
-    const pdfLib = require('docx');
-    const {
-      Document, Packer, Paragraph, Table, TableRow, TableCell,
-      TextRun, AlignmentType, BorderStyle, WidthType, ShadingType,
-    } = pdfLib;
+// docx imported at top
 
     const headerTable = new Table({
       width: { size: 100, type: WidthType.PERCENTAGE },

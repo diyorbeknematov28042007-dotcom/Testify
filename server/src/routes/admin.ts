@@ -3,6 +3,10 @@ import { db } from '../db';
 import { teachers, tests, results } from '../db/schema';
 import { eq, count } from 'drizzle-orm';
 import { adminAuth } from '../middleware/auth';
+import {
+  Document, Packer, Paragraph, Table, TableRow, TableCell,
+  TextRun, AlignmentType, BorderStyle, WidthType, ShadingType, convertInchesToTwip,
+} from 'docx';
 
 export const adminRouter = Router();
 adminRouter.use(adminAuth);
@@ -152,10 +156,7 @@ adminRouter.get('/tests/:id/docx', async (req, res) => {
     });
     if (!test) return res.status(404).json({ error: 'Topilmadi' });
 
-    const {
-      Document, Packer, Paragraph, Table, TableRow, TableCell,
-      TextRun, AlignmentType, BorderStyle, WidthType, ShadingType, convertInchesToTwip,
-    } = require('docx');
+// docx imported at top
 
     const letters = ['A', 'B', 'C', 'D'];
     const qs = (test as any).questions;

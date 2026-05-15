@@ -41,7 +41,6 @@ export default function TeacherLogin() {
         setLoc('/teacher/dashboard');
       } else {
         const data = await api.teacherRegister(form.login, form.password, form.name);
-        // Verifikatsiya kodini ko'rsatish
         setVerifyState({
           show: true,
           code: data.verifyCode,
@@ -51,19 +50,18 @@ export default function TeacherLogin() {
         });
       }
     } catch (e: any) {
-      // Agar akkaunt tasdiqlanmagan bo'lsa
-      if (e.message === 'Akkaunt tasdiqlanmagan' || e.needsVerification) {
-        const errData = JSON.parse(e.message || '{}');
+      // 403 — Akkaunt tasdiqlanmagan
+      if (e.needsVerification === true) {
         setVerifyState({
           show: true,
-          code: errData.verifyCode || '',
-          teacherId: errData.teacherId || '',
-          login: form.login,
+          code: e.verifyCode || '',
+          teacherId: e.teacherId || '',
+          login: e.login || form.login,
           copied: false,
         });
         return;
       }
-      toast(e.message, 'error');
+      toast(e.message || 'Xato yuz berdi', 'error');
     } finally {
       setLoading(false);
     }

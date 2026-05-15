@@ -26,7 +26,12 @@ async function req(method: string, path: string, body?: any) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Xato yuz berdi');
+  if (!res.ok) {
+    const err: any = new Error(data.error || 'Xato yuz berdi');
+    // Backend dan kelgan barcha ma'lumotlarni error ga qo'shamiz
+    Object.assign(err, data);
+    throw err;
+  }
   return data;
 }
 

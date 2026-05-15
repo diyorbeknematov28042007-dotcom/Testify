@@ -154,8 +154,8 @@ export default function TeacherDashboard() {
                   <button onClick={() => setLoc(`/teacher/test/${t.id}/results`)} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><BarChart2 className="w-3.5 h-3.5" />Natijalar</button>
                   <button onClick={() => setLoc(`/teacher/edit/${t.id}`)} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Edit className="w-3.5 h-3.5" />Tahrir</button>
                   <button onClick={() => cloneMut.mutate(t.id)} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Copy className="w-3.5 h-3.5" />Nusxa</button>
-                  <button onClick={() => handlePdf(t.id, 'test')} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><FileText className="w-3.5 h-3.5" />PDF</button>
-                  <button onClick={() => handlePdf(t.id, 'results')} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Download className="w-3.5 h-3.5" />Natija PDF</button>
+                  <button onClick={() => handlePdf(t.id, 'test')} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><FileText className="w-3.5 h-3.5" />Yuklab olish</button>
+                  <button onClick={() => handlePdf(t.id, 'results')} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Download className="w-3.5 h-3.5" />Natijalar</button>
                   {t.isActive && (
                     <button onClick={() => setStopId(t.id)} className="text-amber-600 hover:bg-amber-50 text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
                       <StopCircle className="w-3.5 h-3.5" />To'xtat

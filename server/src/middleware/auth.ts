@@ -3,11 +3,12 @@ import { db } from '../db';
 import { teacherAuthTokens } from '../db/schema';
 import { eq } from 'drizzle-orm';
 
-const adminTokens = new Set<string>();
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'D1yoRBeK';
 
-export function setAdminToken(token: string) { adminTokens.add(token); }
-export function removeAdminToken(token: string) { adminTokens.delete(token); }
-export function isValidAdminToken(token: string) { return adminTokens.has(token); }
+// Stable admin token — server qayta ishga tushsa ham o'zgarmaydi
+function getExpectedAdminToken(): string {
+  return `admin_${Buffer.from(ADMIN_USERNAME).toString('base64')}`;
+}
 
 export async function teacherAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.headers['x-teacher-token'] as string;
@@ -25,8 +26,11 @@ export async function teacherAuth(req: Request, res: Response, next: NextFunctio
 
 export function adminAuth(req: Request, res: Response, next: NextFunction) {
   const token = req.headers['x-admin-token'] as string;
-  if (!token || !isValidAdminToken(token)) {
-    return res.status(401).json({ error: 'Admin token kerak' });
+  if (!token) return res.status(401).json({ error: 'Admin token kerak' });
+
+  const expected = getExpectedAdminToken();
+  if (token !== expected) {
+    return res.status(401).json({ error: 'Admin token noto\'g\'ri' });
   }
   next();
 }

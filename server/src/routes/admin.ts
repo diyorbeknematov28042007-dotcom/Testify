@@ -167,7 +167,6 @@ adminRouter.get('/tests/:id/docx', async (req, res) => {
       borders: {
         top: { style: BorderStyle.NONE }, bottom: { style: BorderStyle.SINGLE, size: 6, color: '4F46E5' },
         left: { style: BorderStyle.NONE }, right: { style: BorderStyle.NONE },
-        insideH: { style: BorderStyle.NONE }, insideV: { style: BorderStyle.NONE },
       },
       rows: [new TableRow({
         children: [

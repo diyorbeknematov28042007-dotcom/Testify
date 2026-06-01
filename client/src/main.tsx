@@ -16,6 +16,7 @@ const TeacherLogin = lazy(() => import('./pages/teacher/TeacherLogin'));
 const TeacherDashboard = lazy(() => import('./pages/teacher/TeacherDashboard'));
 const TeacherCreate = lazy(() => import('./pages/teacher/TeacherCreate'));
 const TeacherResults = lazy(() => import('./pages/teacher/TeacherResults'));
+const PaymentPage = lazy(() => import('./pages/teacher/PaymentPage'));
 const AdminLogin = lazy(() => import('./pages/admin/AdminLogin'));
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
 
@@ -70,6 +71,9 @@ function App() {
           </Route>
           <Route path="/teacher/test/:id/results">
             {() => <TeacherGuard><TeacherResults /></TeacherGuard>}
+          </Route>
+          <Route path="/teacher/payment">
+            {() => <TeacherGuard><PaymentPage /></TeacherGuard>}
           </Route>
           <Route path="/admin/login" component={AdminLogin} />
           <Route path="/admin/dashboard">

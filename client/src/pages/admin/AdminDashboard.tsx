@@ -1,14 +1,29 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Trash2, Edit2, Eye, EyeOff, Copy, Download, StopCircle, PlayCircle, X, Plus } from 'lucide-react';
+import {
+  Trash2, Edit2, Eye, EyeOff, Copy, Download, StopCircle, PlayCircle,
+  X, Plus, CreditCard, BarChart2, CheckCircle, TrendingUp, Tag
+} from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { formatDate, cn } from '../../lib/utils';
 import { toast } from '../../hooks/useToast';
 
+const TARIFF_ICONS: Record<string, string> = {
+  'Testify Ufq': '🌅',
+  'Testify Nihol': '🌱',
+  "Testify Cho'qqi": '🏔',
+  'Testify Dargoh': '🏛',
+  'Testify Samo': '🌌',
+};
+
+function fmt(n: number) {
+  return n?.toLocaleString('uz-UZ') ?? '0';
+}
+
 export default function AdminDashboard() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<'stats' | 'teachers' | 'tests'>('stats');
+  const [tab, setTab] = useState<'stats' | 'teachers' | 'tests' | 'payments' | 'cards' | 'tariffs'>('stats');
   const [showPassMap, setShowPassMap] = useState<Record<number, boolean>>({});
   const [addModal, setAddModal] = useState(false);
   const [limitModal, setLimitModal] = useState<any>(null);
@@ -16,6 +31,17 @@ export default function AdminDashboard() {
   const [limitForm, setLimitForm] = useState({ pub: 3, priv: 1 });
   const [deleteTeacher, setDeleteTeacher] = useState<number | null>(null);
   const [deleteTest, setDeleteTest] = useState<number | null>(null);
+
+  // Kartalar state
+  const [cardModal, setCardModal] = useState(false);
+  const [cardForm, setCardForm] = useState({ bankName: '', cardNumber: '', cardHolder: '' });
+
+  // Tariflar state
+  const [tariffModal, setTariffModal] = useState(false);
+  const [tariffEditModal, setTariffEditModal] = useState<any>(null);
+  const [tariffForm, setTariffForm] = useState({
+    name: '', description: '', price: '', publicLimit: '', privateLimit: ''
+  });
 
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
@@ -32,6 +58,30 @@ export default function AdminDashboard() {
     queryKey: ['admin-tests'],
     queryFn: api.getAllTests,
     enabled: tab === 'tests',
+  });
+
+  const { data: payments = [] } = useQuery({
+    queryKey: ['admin-payments'],
+    queryFn: api.adminGetAllPayments,
+    enabled: tab === 'payments',
+  });
+
+  const { data: payStats } = useQuery({
+    queryKey: ['admin-pay-stats'],
+    queryFn: api.adminGetPaymentStats,
+    enabled: tab === 'stats' || tab === 'payments',
+  });
+
+  const { data: adminCards = [] } = useQuery({
+    queryKey: ['admin-cards'],
+    queryFn: api.adminGetCards,
+    enabled: tab === 'cards',
+  });
+
+  const { data: adminTariffs = [] } = useQuery({
+    queryKey: ['admin-tariffs'],
+    queryFn: api.adminGetTariffs,
+    enabled: tab === 'tariffs',
   });
 
   const addMut = useMutation({
@@ -82,6 +132,61 @@ export default function AdminDashboard() {
     },
   });
 
+  // Karta mutatsiyalari
+  const addCardMut = useMutation({
+    mutationFn: () => api.adminAddCard(cardForm),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-cards'] });
+      toast("Karta qo'shildi", 'success');
+      setCardModal(false);
+      setCardForm({ bankName: '', cardNumber: '', cardHolder: '' });
+    },
+    onError: (e: any) => toast(e.message, 'error'),
+  });
+
+  const toggleCardMut = useMutation({
+    mutationFn: ({ id, isActive }: { id: number; isActive: boolean }) =>
+      api.adminToggleCard(id, isActive),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-cards'] }),
+  });
+
+  const deleteCardMut = useMutation({
+    mutationFn: (id: number) => api.adminDeleteCard(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-cards'] });
+      toast("Karta o'chirildi", 'success');
+    },
+  });
+
+  // Tarif mutatsiyalari
+  const addTariffMut = useMutation({
+    mutationFn: () => api.adminAddTariff(tariffForm),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-tariffs'] });
+      toast("Tarif qo'shildi", 'success');
+      setTariffModal(false);
+      setTariffForm({ name: '', description: '', price: '', publicLimit: '', privateLimit: '' });
+    },
+    onError: (e: any) => toast(e.message, 'error'),
+  });
+
+  const updateTariffMut = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => api.adminUpdateTariff(id, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-tariffs'] });
+      toast("Tarif yangilandi", 'success');
+      setTariffEditModal(null);
+    },
+  });
+
+  const deleteTariffMut = useMutation({
+    mutationFn: (id: number) => api.adminDeleteTariff(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-tariffs'] });
+      toast("Tarif o'chirildi", 'success');
+    },
+  });
+
   const handlePdf = async (id: number) => {
     try {
       await api.downloadPdf(`/api/admin/tests/${id}/docx`, `test-${id}.docx`);
@@ -96,11 +201,14 @@ export default function AdminDashboard() {
       <div className="max-w-7xl mx-auto px-4 py-8">
         <h1 className="text-2xl font-bold text-slate-900 mb-6">Admin Dashboard</h1>
 
-        <div className="flex bg-white rounded-xl border border-slate-200 p-1 mb-6 gap-1 w-full sm:w-auto sm:inline-flex">
+        <div className="flex flex-wrap bg-white rounded-xl border border-slate-200 p-1 mb-6 gap-1 w-full sm:w-auto sm:inline-flex">
           {[
             ['stats', 'Statistika'],
             ['teachers', "O'qituvchilar"],
             ['tests', 'Testlar'],
+            ['payments', "To'lovlar"],
+            ['cards', 'Kartalar'],
+            ['tariffs', 'Tariflar'],
           ].map(([v, l]) => (
             <button
               key={v}
@@ -116,21 +224,62 @@ export default function AdminDashboard() {
 
         {/* Stats */}
         {tab === 'stats' && stats && (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {[
-              { label: "O'qituvchilar", value: stats.teacherCount, color: 'from-blue-500 to-blue-600' },
-              { label: 'Testlar', value: stats.testCount, color: 'from-indigo-500 to-violet-600' },
-              { label: 'Urinishlar', value: stats.attemptCount, color: 'from-violet-500 to-purple-600' },
-              { label: 'Ommaviy', value: stats.publicCount, color: 'from-emerald-500 to-teal-600' },
-              { label: 'Shaxsiy', value: stats.privateCount, color: 'from-amber-500 to-orange-600' },
-              { label: 'Faol', value: stats.activeCount, color: 'from-green-500 to-emerald-600' },
-            ].map((s, i) => (
-              <div key={i} className={`bg-gradient-to-br ${s.color} rounded-2xl p-5 text-white`}>
-                <p className="text-3xl font-bold">{s.value}</p>
-                <p className="text-xs opacity-80 mt-1">{s.label}</p>
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+              {[
+                { label: "O'qituvchilar", value: stats.teacherCount, color: 'from-blue-500 to-blue-600' },
+                { label: 'Testlar', value: stats.testCount, color: 'from-indigo-500 to-violet-600' },
+                { label: 'Urinishlar', value: stats.attemptCount, color: 'from-violet-500 to-purple-600' },
+                { label: 'Ommaviy', value: stats.publicCount, color: 'from-emerald-500 to-teal-600' },
+                { label: 'Shaxsiy', value: stats.privateCount, color: 'from-amber-500 to-orange-600' },
+                { label: 'Faol', value: stats.activeCount, color: 'from-green-500 to-emerald-600' },
+              ].map((s, i) => (
+                <div key={i} className={`bg-gradient-to-br ${s.color} rounded-2xl p-5 text-white`}>
+                  <p className="text-3xl font-bold">{s.value}</p>
+                  <p className="text-xs opacity-80 mt-1">{s.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {/* Moliyaviy statistika */}
+            {payStats && (
+              <div className="card">
+                <h2 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                  <TrendingUp className="w-5 h-5 text-emerald-500" />
+                  Moliyaviy hisobot
+                </h2>
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="bg-emerald-50 rounded-xl p-4">
+                    <p className="text-xs text-emerald-600 mb-1">Jami tushum</p>
+                    <p className="text-2xl font-bold text-emerald-700">{fmt(payStats.totalRevenue)} so'm</p>
+                  </div>
+                  <div className="bg-indigo-50 rounded-xl p-4">
+                    <p className="text-xs text-indigo-600 mb-1">Jami to'lovlar</p>
+                    <p className="text-2xl font-bold text-indigo-700">{payStats.totalPayments} ta</p>
+                  </div>
+                </div>
+                {payStats.byCard?.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold text-slate-600 mb-2">Karta bo'yicha:</p>
+                    <div className="space-y-2">
+                      {payStats.byCard.map((c: any, i: number) => (
+                        <div key={i} className="flex items-center justify-between text-sm p-2 rounded-lg bg-slate-50">
+                          <div>
+                            <span className="font-medium text-slate-700">{c.bankName}</span>
+                            <span className="text-slate-400 font-mono text-xs ml-2">{c.cardNumber.slice(-4)}</span>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-bold text-slate-800">{fmt(c.total)} so'm</p>
+                            <p className="text-xs text-slate-400">{c.count} ta to'lov</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
 
         {/* Teachers */}
@@ -414,6 +563,288 @@ export default function AdminDashboard() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── TO'LOVLAR TAB ── */}
+      {tab === 'payments' && (
+        <div className="space-y-4">
+          {payments.length === 0 ? (
+            <div className="card text-center py-12 text-slate-400">
+              <CheckCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>Hozircha to'lovlar yo'q</p>
+            </div>
+          ) : (
+            <div className="card overflow-hidden p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-50 border-b border-slate-200">
+                    <tr>
+                      {["O'qituvchi", 'Tarif', 'Summa', 'Karta', 'Sana', 'Holat', 'Screenshot'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase">{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {payments.map((p: any) => (
+                      <tr key={p.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3">
+                          <p className="text-sm font-medium text-slate-800">{p.teacher?.name}</p>
+                          <p className="text-xs text-slate-400 font-mono">{p.teacher?.teacherId}</p>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600">{p.tariff?.name}</td>
+                        <td className="px-4 py-3 text-sm font-bold text-emerald-600">{fmt(p.amount)} so'm</td>
+                        <td className="px-4 py-3 text-xs text-slate-500">
+                          <p>{p.card?.bankName}</p>
+                          <p className="font-mono">{p.card?.cardNumber?.slice(-4)}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-slate-500">{formatDate(p.createdAt)}</td>
+                        <td className="px-4 py-3">
+                          <span className={cn(
+                            'text-xs px-2 py-0.5 rounded-full font-medium',
+                            p.status === 'approved' ? 'bg-emerald-100 text-emerald-700' :
+                            p.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                            'bg-amber-100 text-amber-700'
+                          )}>
+                            {p.status === 'approved' ? 'Tasdiqlandi' : p.status === 'rejected' ? 'Rad etildi' : 'Kutilmoqda'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          {p.screenshotUrl && (
+                            <a
+                              href={`${import.meta.env.VITE_API_URL || ''}${p.screenshotUrl}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-indigo-500 hover:underline text-xs"
+                            >
+                              Ko'rish
+                            </a>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── KARTALAR TAB ── */}
+      {tab === 'cards' && (
+        <>
+          <div className="flex justify-end mb-4">
+            <button onClick={() => setCardModal(true)} className="btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" />Karta qo'shish
+            </button>
+          </div>
+          {adminCards.length === 0 ? (
+            <div className="card text-center py-12 text-slate-400">
+              <CreditCard className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>Hozircha kartalar yo'q</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {adminCards.map((card: any) => (
+                <div key={card.id} className={cn('card', !card.isActive && 'opacity-60')}>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center">
+                        <CreditCard className="w-4 h-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-800">{card.bankName}</p>
+                        <p className="text-xs text-slate-400">{card.cardHolder}</p>
+                      </div>
+                    </div>
+                    <span className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-medium',
+                      card.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                    )}>
+                      {card.isActive ? 'Faol' : "Nofaol"}
+                    </span>
+                  </div>
+                  <p className="font-mono text-lg font-bold text-slate-700 tracking-widest mb-3">
+                    {card.cardNumber}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => toggleCardMut.mutate({ id: card.id, isActive: !card.isActive })}
+                      className={cn('flex-1 text-xs py-1.5 rounded-lg border font-medium transition-colors',
+                        card.isActive ? 'border-amber-200 text-amber-600 hover:bg-amber-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                      )}
+                    >
+                      {card.isActive ? "O'chirish" : 'Yoqish'}
+                    </button>
+                    <button
+                      onClick={() => deleteCardMut.mutate(card.id)}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Karta qo'shish modal */}
+          {cardModal && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+              <div className="card max-w-sm w-full">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-lg">Karta qo'shish</h3>
+                  <button onClick={() => setCardModal(false)}><X className="w-5 h-5" /></button>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    ['bankName', 'Bank nomi', 'Kapitalbank'],
+                    ['cardNumber', 'Karta raqami', '8600 0000 0000 0000'],
+                    ['cardHolder', 'Karta egasi', 'ABDULLAYEV AKBAR'],
+                  ].map(([f, l, p]) => (
+                    <div key={f}>
+                      <label className="text-sm font-medium text-slate-700 block mb-1">{l}</label>
+                      <input
+                        className="input"
+                        placeholder={p}
+                        value={(cardForm as any)[f]}
+                        onChange={e => setCardForm(x => ({ ...x, [f]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                  <div className="flex gap-3 pt-2">
+                    <button onClick={() => setCardModal(false)} className="btn-ghost flex-1">Bekor</button>
+                    <button onClick={() => addCardMut.mutate()} disabled={addCardMut.isPending} className="btn-primary flex-1">
+                      Qo'shish
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── TARIFLAR TAB ── */}
+      {tab === 'tariffs' && (
+        <>
+          <div className="flex justify-end mb-4">
+            <button onClick={() => setTariffModal(true)} className="btn-primary flex items-center gap-2">
+              <Plus className="w-4 h-4" />Tarif qo'shish
+            </button>
+          </div>
+          {adminTariffs.length === 0 ? (
+            <div className="card text-center py-12 text-slate-400">
+              <Tag className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>Hozircha tariflar yo'q</p>
+            </div>
+          ) : (
+            <div className="grid sm:grid-cols-2 gap-4">
+              {adminTariffs.map((tariff: any) => (
+                <div key={tariff.id} className={cn('card', !tariff.isActive && 'opacity-60')}>
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl">{TARIFF_ICONS[tariff.name] || '📦'}</span>
+                      <p className="font-bold text-slate-800">{tariff.name}</p>
+                    </div>
+                    <span className={cn(
+                      'text-xs px-2 py-0.5 rounded-full font-medium',
+                      tariff.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'
+                    )}>
+                      {tariff.isActive ? 'Faol' : "Nofaol"}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500 mb-3">{tariff.description}</p>
+                  <div className="flex gap-2 mb-3">
+                    <span className="text-xs bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full">+{tariff.publicLimit} ommaviy</span>
+                    <span className="text-xs bg-violet-50 text-violet-700 px-2 py-0.5 rounded-full">+{tariff.privateLimit} shaxsiy</span>
+                  </div>
+                  <p className="font-bold text-lg text-slate-900 mb-3">{fmt(tariff.price)} so'm</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setTariffEditModal(tariff);
+                        setTariffForm({
+                          name: tariff.name, description: tariff.description,
+                          price: tariff.price, publicLimit: tariff.publicLimit,
+                          privateLimit: tariff.privateLimit,
+                        });
+                      }}
+                      className="flex-1 text-xs py-1.5 rounded-lg border border-indigo-200 text-indigo-600 hover:bg-indigo-50 font-medium"
+                    >
+                      Tahrirlash
+                    </button>
+                    <button
+                      onClick={() => updateTariffMut.mutate({ id: tariff.id, data: { isActive: !tariff.isActive } })}
+                      className={cn('flex-1 text-xs py-1.5 rounded-lg border font-medium',
+                        tariff.isActive ? 'border-amber-200 text-amber-600 hover:bg-amber-50' : 'border-emerald-200 text-emerald-600 hover:bg-emerald-50'
+                      )}
+                    >
+                      {tariff.isActive ? "O'chirish" : 'Yoqish'}
+                    </button>
+                    <button
+                      onClick={() => deleteTariffMut.mutate(tariff.id)}
+                      className="px-3 py-1.5 rounded-lg border border-red-200 text-red-500 hover:bg-red-50 text-xs"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Tarif qo'shish / tahrirlash modal */}
+          {(tariffModal || tariffEditModal) && (
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+              <div className="card max-w-sm w-full">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="font-bold text-lg">{tariffEditModal ? 'Tarifni tahrirlash' : "Tarif qo'shish"}</h3>
+                  <button onClick={() => { setTariffModal(false); setTariffEditModal(null); }}><X className="w-5 h-5" /></button>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    ['name', 'Tarif nomi', 'Testify Nihol'],
+                    ['description', 'Tavsif', '5 ommaviy + 2 shaxsiy test'],
+                    ['price', 'Narx (so\'m)', '50000'],
+                    ['publicLimit', 'Ommaviy limit', '5'],
+                    ['privateLimit', 'Shaxsiy limit', '2'],
+                  ].map(([f, l, p]) => (
+                    <div key={f}>
+                      <label className="text-sm font-medium text-slate-700 block mb-1">{l}</label>
+                      <input
+                        className="input"
+                        placeholder={p}
+                        value={(tariffForm as any)[f]}
+                        onChange={e => setTariffForm(x => ({ ...x, [f]: e.target.value }))}
+                      />
+                    </div>
+                  ))}
+                  <div className="flex gap-3 pt-2">
+                    <button
+                      onClick={() => { setTariffModal(false); setTariffEditModal(null); }}
+                      className="btn-ghost flex-1"
+                    >
+                      Bekor
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (tariffEditModal) {
+                          updateTariffMut.mutate({ id: tariffEditModal.id, data: tariffForm });
+                        } else {
+                          addTariffMut.mutate();
+                        }
+                      }}
+                      className="btn-primary flex-1"
+                    >
+                      Saqlash
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

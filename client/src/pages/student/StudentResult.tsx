@@ -1,13 +1,16 @@
+import { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { CheckCircle, XCircle, Home, Eye, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, Home, Eye, Clock, Download } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { cn } from '../../lib/utils';
+import { PdfHelpModal } from '../../components/ui/PdfHelpModal';
 
 export function StudentResult() {
   const { code } = useParams<{ code: string }>();
   const [, setLoc] = useLocation();
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const result = JSON.parse(localStorage.getItem(`test_result_${code}`) || 'null');
 
   if (!result) {
@@ -70,10 +73,14 @@ export function StudentResult() {
             <button onClick={() => setLoc(`/student/test/${code}/review`)} className="btn-outline flex-1 flex items-center justify-center gap-2">
               <Eye className="w-4 h-4" />Ko'rib chiqish
             </button>
+            <button onClick={() => setShowPdfModal(true)} className="btn-outline flex items-center justify-center gap-2 px-3">
+              <Download className="w-4 h-4" />
+            </button>
             <button onClick={() => setLoc('/')} className="btn-primary flex-1 flex items-center justify-center gap-2">
               <Home className="w-4 h-4" />Bosh sahifa
             </button>
           </div>
+          <PdfHelpModal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} />
         </div>
       </div>
     </div>

@@ -75,6 +75,7 @@ export default function TeacherDashboard() {
           <div className="flex gap-2">
             <button onClick={() => setShowPromoModal(true)} className="btn-ghost flex items-center gap-1.5 text-sm"><Hash className="w-4 h-4" /><span className="hidden sm:inline">Promokod</span></button>
             <button onClick={() => setShowPassModal(true)} className="btn-ghost flex items-center gap-1.5 text-sm"><Key className="w-4 h-4" /><span className="hidden sm:inline">Parol</span></button>
+            <button onClick={() => setLoc('/teacher/payment')} className="btn-outline flex items-center gap-1.5 text-sm border-indigo-300 text-indigo-600 hover:bg-indigo-50"><FileText className="w-4 h-4" /><span className="hidden sm:inline">Limit olish</span></button>
             <button onClick={() => setLoc('/teacher/create')} className="btn-primary flex items-center gap-1.5 text-sm"><Plus className="w-4 h-4" />Yangi test</button>
           </div>
         </div>

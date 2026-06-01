@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useParams, useLocation } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, Search, Trophy, User, Clock } from 'lucide-react';
+import { ArrowLeft, Search, Trophy, User, Clock, Download } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { formatDate, cn } from '../../lib/utils';
+import { PdfHelpModal } from '../../components/ui/PdfHelpModal';
 
 export default function TeacherResults() {
   const { id } = useParams<{ id: string }>();
@@ -12,6 +13,7 @@ export default function TeacherResults() {
   const [search, setSearch] = useState('');
   const [sort, setSort] = useState<'score' | 'name' | 'date'>('score');
   const [dir, setDir] = useState<'desc' | 'asc'>('desc');
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   const { data, isLoading } = useQuery({
     queryKey: ['test-results', id],
@@ -38,13 +40,26 @@ export default function TeacherResults() {
 
         {data?.test && (
           <div className="card mb-6">
-            <h1 className="text-xl font-bold text-slate-900 mb-1">{data.test.title}</h1>
-            <div className="flex gap-4 text-sm text-slate-500">
-              <span className="font-mono text-indigo-600 font-bold">{data.test.code}</span>
-              <span>{data.results?.length || 0} urinish</span>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 mb-1">{data.test.title}</h1>
+                <div className="flex gap-4 text-sm text-slate-500">
+                  <span className="font-mono text-indigo-600 font-bold">{data.test.code}</span>
+                  <span>{data.results?.length || 0} urinish</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowPdfModal(true)}
+                className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors shrink-0"
+              >
+                <Download className="w-4 h-4" />
+                PDF
+              </button>
             </div>
           </div>
         )}
+
+        <PdfHelpModal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} />
 
         <div className="flex flex-col sm:flex-row gap-3 mb-4">
           <div className="relative flex-1">

@@ -87,6 +87,33 @@ export const api = {
   adminRestartTest: (id: number) => req('POST', `/admin/tests/${id}/restart`),
   adminDeleteTest: (id: number) => req('DELETE', `/admin/tests/${id}`),
 
+  // ── TO'LOV ──
+  getPublicTariffs: () => req('GET', '/payment/tariffs'),
+  getPublicCards: () => req('GET', '/payment/cards'),
+  submitPayment: async (formData: FormData) => {
+    const apiBase = (import.meta.env.VITE_API_URL || '') + '/api';
+    const h: Record<string, string> = {};
+    const t = localStorage.getItem('teacherToken');
+    if (t) h['x-teacher-token'] = t;
+    const res = await fetch(`${apiBase}/payment/submit`, { method: 'POST', headers: h, body: formData });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || 'Xato');
+    return data;
+  },
+  getMyPayments: () => req('GET', '/payment/my'),
+
+  // ── ADMIN TO'LOV ──
+  adminGetAllPayments: () => req('GET', '/payment/admin/all'),
+  adminGetPaymentStats: () => req('GET', '/payment/admin/stats'),
+  adminGetCards: () => req('GET', '/payment/admin/cards'),
+  adminAddCard: (data: any) => req('POST', '/payment/admin/cards', data),
+  adminToggleCard: (id: number, isActive: boolean) => req('PATCH', `/payment/admin/cards/${id}`, { isActive }),
+  adminDeleteCard: (id: number) => req('DELETE', `/payment/admin/cards/${id}`),
+  adminGetTariffs: () => req('GET', '/payment/admin/tariffs'),
+  adminAddTariff: (data: any) => req('POST', '/payment/admin/tariffs', data),
+  adminUpdateTariff: (id: number, data: any) => req('PATCH', `/payment/admin/tariffs/${id}`, data),
+  adminDeleteTariff: (id: number) => req('DELETE', `/payment/admin/tariffs/${id}`),
+
   // Admin PDF - teacher token ishlatadi
   downloadPdfAsAdmin: async (testId: number, filename: string) => {
     const apiBase = import.meta.env.VITE_API_URL || '';

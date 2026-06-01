@@ -87,11 +87,48 @@ export const promocodes = pgTable('promocodes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
+// ── TO'LOV KARTALARI (admin qo'shadi) ──
+export const paymentCards = pgTable('payment_cards', {
+  id: serial('id').primaryKey(),
+  bankName: text('bank_name').notNull(),
+  cardNumber: text('card_number').notNull(),
+  cardHolder: text('card_holder').notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ── TARIFLAR (admin qo'shadi) ──
+export const tariffs = pgTable('tariffs', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  description: text('description').notNull(),
+  price: integer('price').notNull(),
+  publicLimit: integer('public_limit').default(0).notNull(),
+  privateLimit: integer('private_limit').default(0).notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+
+// ── TO'LOV SO'ROVLARI ──
+export const payments = pgTable('payments', {
+  id: serial('id').primaryKey(),
+  teacherId: integer('teacher_id').references(() => teachers.id, { onDelete: 'cascade' }).notNull(),
+  tariffId: integer('tariff_id').references(() => tariffs.id).notNull(),
+  cardId: integer('card_id').references(() => paymentCards.id).notNull(),
+  screenshotUrl: text('screenshot_url').notNull(),
+  promoCode: text('promo_code'),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending').notNull(),
+  amount: integer('amount').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 // Relations
 export const teachersRelations = relations(teachers, ({ many }) => ({
   tests: many(tests),
   authTokens: many(teacherAuthTokens),
   promocodes: many(promocodes),
+  payments: many(payments),
 }));
 
 export const testsRelations = relations(tests, ({ one, many }) => ({
@@ -119,4 +156,10 @@ export const teacherAuthTokensRelations = relations(teacherAuthTokens, ({ one })
 
 export const promocodesRelations = relations(promocodes, ({ one }) => ({
   teacher: one(teachers, { fields: [promocodes.teacherId], references: [teachers.id] }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  teacher: one(teachers, { fields: [payments.teacherId], references: [teachers.id] }),
+  tariff: one(tariffs, { fields: [payments.tariffId], references: [tariffs.id] }),
+  card: one(paymentCards, { fields: [payments.cardId], references: [paymentCards.id] }),
 }));

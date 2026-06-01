@@ -8,6 +8,8 @@ import { publicRouter } from './routes/public';
 import { teachersRouter } from './routes/teachers';
 import { adminRouter } from './routes/admin';
 import { botRouter } from './routes/bot';
+import { paymentRouter, uploadDir } from './routes/payment';
+import path from 'path';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,6 +27,8 @@ app.use('/api/public', publicRouter);
 app.use('/api/teachers', teachersRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/bot', botRouter);
+app.use('/api/payment', paymentRouter);
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 app.get('/health', (_, res) => res.json({ ok: true }));
 

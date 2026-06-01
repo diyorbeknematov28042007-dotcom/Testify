@@ -6,6 +6,7 @@ import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { formatDate, cn } from '../../lib/utils';
 import { toast } from '../../hooks/useToast';
+import { PdfHelpModal } from '../../components/ui/PdfHelpModal';
 
 export default function TeacherDashboard() {
   const [, setLoc] = useLocation();
@@ -18,6 +19,7 @@ export default function TeacherDashboard() {
   const [passForm, setPassForm] = useState({ old: '', next: '', confirm: '' });
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [stopId, setStopId] = useState<number | null>(null);
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   const { data: me } = useQuery({ queryKey: ['teacher-me'], queryFn: api.getMe });
   const { data: tests = [], isLoading } = useQuery({ queryKey: ['teacher-tests'], queryFn: api.getMyTests });
@@ -50,11 +52,8 @@ export default function TeacherDashboard() {
     onError: (e: any) => toast(e.message, 'error'),
   });
 
-  const handlePdf = async (id: number, type: 'test' | 'results') => {
-    try {
-      await api.downloadPdf(`/api/teachers/tests/${id}/${type === 'test' ? 'docx' : 'results/docx'}`, `${type}-${id}.docx`);
-    } catch { toast('PDF xatosi', 'error'); }
-  };
+  const handlePdf = () => setShowPdfModal(true);
+  const handleTestDownload = (id: number) => setLoc(`/teacher/edit/${id}`);
 
   const filtered = tests
     .filter((t: any) => t.title.toLowerCase().includes(search.toLowerCase()) || t.subject.toLowerCase().includes(search.toLowerCase()))
@@ -155,8 +154,8 @@ export default function TeacherDashboard() {
                   <button onClick={() => setLoc(`/teacher/test/${t.id}/results`)} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><BarChart2 className="w-3.5 h-3.5" />Natijalar</button>
                   <button onClick={() => setLoc(`/teacher/edit/${t.id}`)} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Edit className="w-3.5 h-3.5" />Tahrir</button>
                   <button onClick={() => cloneMut.mutate(t.id)} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Copy className="w-3.5 h-3.5" />Nusxa</button>
-                  <button onClick={() => handlePdf(t.id, 'test')} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><FileText className="w-3.5 h-3.5" />Yuklab olish</button>
-                  <button onClick={() => handlePdf(t.id, 'results')} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Download className="w-3.5 h-3.5" />Natijalar</button>
+                  <button onClick={() => handleTestDownload(t.id)} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><FileText className="w-3.5 h-3.5" />Yuklab olish</button>
+                  <button onClick={() => handlePdf()} className="btn-ghost text-xs px-2 py-1.5 flex items-center gap-1"><Download className="w-3.5 h-3.5" />Natijalar</button>
                   {t.isActive && (
                     <button onClick={() => setStopId(t.id)} className="text-amber-600 hover:bg-amber-50 text-xs px-2 py-1.5 rounded-lg flex items-center gap-1 transition-colors">
                       <StopCircle className="w-3.5 h-3.5" />To'xtat
@@ -258,6 +257,7 @@ export default function TeacherDashboard() {
           </div>
         </div>
       )}
+      <PdfHelpModal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} />
     </div>
   );
 }

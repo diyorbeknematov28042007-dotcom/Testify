@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import { useLocation, useParams } from 'wouter';
 import { useQuery } from '@tanstack/react-query';
-import { Plus, Trash2, Upload, X, Image, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Trash2, Upload, X, Image, FileText, ChevronDown, ChevronUp, Download } from 'lucide-react';
 import { TopNav } from '../../components/layout/TopNav';
 import { api } from '../../lib/api';
 import { SUBJECTS } from '../../lib/utils';
 import { toast } from '../../hooks/useToast';
+import { PdfHelpModal } from '../../components/ui/PdfHelpModal';
 
 interface Question {
   text: string;
@@ -56,6 +57,7 @@ export default function TeacherCreate() {
   const [importModal, setImportModal] = useState(false);
   const [importText, setImportText] = useState('');
   const [importIndex, setImportIndex] = useState<number | null>(null); // null = bulk import
+  const [showPdfModal, setShowPdfModal] = useState(false);
 
   const { data: existing } = useQuery({
     queryKey: ['teacher-test', id],
@@ -175,7 +177,18 @@ export default function TeacherCreate() {
       <div className="max-w-3xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-bold text-slate-900">{isEdit ? 'Testni tahrirlash' : 'Yangi test yaratish'}</h1>
-          <button onClick={() => setLoc('/teacher/dashboard')} className="btn-ghost text-sm">← Orqaga</button>
+          <div className="flex items-center gap-2">
+            {isEdit && (
+              <button
+                onClick={() => setShowPdfModal(true)}
+                className="btn-outline text-sm flex items-center gap-1.5"
+              >
+                <Download className="w-4 h-4" />
+                Yuklab olish
+              </button>
+            )}
+            <button onClick={() => setLoc('/teacher/dashboard')} className="btn-ghost text-sm">← Orqaga</button>
+          </div>
         </div>
 
         {/* General info */}
@@ -368,6 +381,7 @@ export default function TeacherCreate() {
           </div>
         </div>
       )}
+      <PdfHelpModal isOpen={showPdfModal} onClose={() => setShowPdfModal(false)} />
     </div>
   );
 }
